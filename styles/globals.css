@@ -40,3 +40,13 @@ a {
     color-scheme: dark;
   }
 }
+
+@font-face {
+  font-family: 'DSEG7Classic-Regular';
+  src:
+    url('../public/fonts/DSEG7Classic-Regular.ttf') format('woff2'),
+    url('../public/fonts/DSEG7Classic-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
