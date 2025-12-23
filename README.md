@@ -1,5 +1,12 @@
-This is a Next.js project bootstrapped with [`create-plasmic-app`](https://www.npmjs.com/package/create-plasmic-app).
+## Wii Launcher
 
+recreation of the Wii home screen made in Next.js and React via [Plasmic](https://www.plasmic.app/)
+
+## [check it out here](https://wii.suko.pet)
+\
+\
+\
+or build it youself if you're into that:
 ## Getting Started
 
 First, run the development server:
