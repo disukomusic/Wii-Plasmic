@@ -27,8 +27,8 @@ export const SevenSegmentClock: React.FC<SevenSegmentClockProps> = ({
         function tick() {
             const now = new Date();
             let h = now.getHours();
-            let m = now.getMinutes();
-            let ampm = h >= 12 ? "PM" : "AM";
+            const m = now.getMinutes();
+            const ampm = h >= 12 ? "PM" : "AM";
 
             h = h % 12 || 12;
 
