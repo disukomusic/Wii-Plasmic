@@ -23,3 +23,40 @@ export const PLASMIC = initPlasmicLoader({
 // https://docs.plasmic.app/learn/app-hosting/#set-a-plasmic-project-to-use-your-app-host
 
 // PLASMIC.registerComponent(...);
+
+import { TestPlasmicComponent } from "./components/Test";
+
+PLASMIC.registerComponent(TestPlasmicComponent, {
+  name: "Test Plasmic Component",
+  props: {
+    message: {
+      type: "string",
+      defaultValue: "Hello from Test Component!",
+    },
+    className: "string",
+  },
+});
+
+import { SevenSegmentClock } from "./components/SevenSegmentClock";
+
+PLASMIC.registerComponent(SevenSegmentClock, {
+  name: "SevenSegmentClock",
+  props: {
+    className: "string",
+
+    clockFontFamily: {
+      type: "string",
+      defaultValue: "monospace",
+      description: "Font family for the main clock digits (hours and minutes)",
+    },
+
+    ampmFontFamily: {
+      type: "string",
+      defaultValue: "sans-serif",
+      description: "Font family for the AM / PM indicator",
+    },
+  },
+});
+
+    
+
