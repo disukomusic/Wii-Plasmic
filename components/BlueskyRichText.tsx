@@ -8,10 +8,12 @@ interface BlueskyRichTextProps {
     };
     onTagClick?: (tag: string) => void;
     className?: string;
+    fontSize?: number;
 }
 
 export const BlueskyRichText: React.FC<BlueskyRichTextProps> = ({
         record,
+        fontSize = 12,
         onTagClick,
         className
     }) => {
@@ -61,5 +63,5 @@ export const BlueskyRichText: React.FC<BlueskyRichTextProps> = ({
         }
     }
 
-    return <div className={className} style={{ whiteSpace: 'pre-wrap' }}>{segments}</div>;
+    return <div className={className} style={{ whiteSpace: 'pre-wrap', fontSize }}>{segments}</div>;
 };
