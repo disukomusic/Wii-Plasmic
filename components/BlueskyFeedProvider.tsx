@@ -126,26 +126,66 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     }
   }, [agent, mode, actor, feedUrl, searchQuery, limit]);
 
-  // Initial fetch
+// 1. Session Resumption Hook (Keep as is, but ensure it sets a 'restoring' flag if needed)
   useEffect(() => {
+    const tryResumeSession = async () => {
+      const savedSession = localStorage.getItem('bsky_session');
+      if (!savedSession) return;
+      try {
+        setLoading(true);
+        const sessionData = JSON.parse(savedSession);
+        await agent.resumeSession(sessionData);
+        const profile = await agent.getProfile({ actor: sessionData.did });
+        setCurrentUser(profile.data);
+        setIsLoggedIn(true);
+      } catch (e) {
+        console.error("Session resumption failed:", e);
+        localStorage.removeItem('bsky_session');
+      } finally {
+        setLoading(false);
+      }
+    };
+    tryResumeSession();
+  }, [agent]);
+
+// 2. Data Fetching Hook
+  useEffect(() => {
+    // Prevent fetching if we are already in a loading state 
+    // or if timeline mode is active but we aren't logged in yet.
+    if (loading || (mode === 'timeline' && !isLoggedIn)) {
+      return;
+    }
+
+    // Determine if we should debounce (for typing) or fetch immediately
     const isTextInputMode = mode === 'search' || mode === 'author';
-    if (mode === 'timeline' && !isLoggedIn) return;
+    const delay = isTextInputMode ? 500 : 0;
 
     const handler = setTimeout(() => {
+      console.log("Fetching feed now...");
       fetchFeed();
-    }, isTextInputMode ? 500 : 0);
+    }, delay);
 
     return () => clearTimeout(handler);
-  }, [fetchFeed, mode, isLoggedIn, searchQuery, actor]);
 
+    // CRITICAL: We only include the parameters that define the CONTENT.
+    // We do NOT include 'loading' or 'fetchFeed' here.
+    // If fetchFeed is wrapped in useCallback properly, it is safe to include,
+    // but removing 'loading' is what breaks the infinite loop.
+  }, [mode, isLoggedIn, searchQuery, actor, limit, feedUrl]);
+  
   // --- Exposed Actions ---
   useImperativeHandle(ref, () => ({
     login: async () => {
       if (!identifier || !appPassword) return;
       try {
         setLoading(true);
-        const session = await agent.login({ identifier, password: appPassword });
-        const profile = await agent.getProfile({ actor: session.data.did });
+        const response = await agent.login({ identifier, password: appPassword });
+
+        // SAVE SESSION DATA
+        // The response.data contains the AtpSessionData
+        localStorage.setItem('bsky_session', JSON.stringify(response.data));
+
+        const profile = await agent.getProfile({ actor: response.data.did });
         setCurrentUser(profile.data);
         setIsLoggedIn(true);
         await fetchFeed();
@@ -164,7 +204,11 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
         setCurrentUser(null);
         setPosts([]);
         setError(null);
-        setCurrentPostLikes([]); // Clear likes on logout
+        
+        // CLEAR SESSION DATA
+        localStorage.removeItem('bsky_session');
+
+        setCurrentPostLikes([]);
         if (mode !== 'timeline') {
           await fetchFeed();
         }
