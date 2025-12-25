@@ -130,6 +130,88 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     }
   }, [agent, mode, actor, feedUrl, searchQuery, limit]);
 
+  
+  
+  
+  //---------------
+  // Get a user's saved feeds
+  //------------------
+  const [savedFeeds, setSavedFeeds] = useState<any[]>([]);
+  
+  const fetchSavedFeeds = useCallback(async () => {
+    if (!isLoggedIn) return;
+
+    try {
+      const prefsRes = await agent.app.bsky.actor.getPreferences();
+      const prefs = prefsRes.data.preferences;
+      console.log("Full preferences payload:", prefs);
+
+      let feedUris: string[] = [];
+
+      // Try the V2 preference first
+      const v2 = prefs.find((p: any) =>
+          p.$type === "app.bsky.actor.defs#savedFeedsPrefV2"
+      );
+
+      if (v2 && Array.isArray((v2 as any).items)) {
+        (v2 as any).items.forEach((item: any) => {
+          if (item.type === "feed" && item.value) {
+            feedUris.push(item.value);
+          }
+        });
+        console.log("V2 saved feed URIs:", feedUris);
+      }
+
+      // Fall back to legacy savedFeedsPref
+      if (feedUris.length === 0) {
+        const legacy = prefs.find((p: any) =>
+            p.$type === "app.bsky.actor.defs#savedFeedsPref"
+        );
+
+        if (legacy) {
+          const saved = (legacy as any).saved || [];
+          const pinned = (legacy as any).pinned || [];
+          feedUris.push(...saved, ...pinned);
+          console.log("Legacy saved/pinned URIs:", feedUris);
+        }
+      }
+
+      // De-duplicate
+      feedUris = [...new Set(feedUris)];
+
+      if (feedUris.length === 0) {
+        console.warn("No saved feeds found in preferences.");
+        setSavedFeeds([]);
+        return;
+      }
+
+      // Fetch metadata for URIs
+      const metadataRes =
+          await agent.app.bsky.feed.getFeedGenerators({
+            feeds: feedUris,
+          });
+
+      const metadataMap: Record<string, any> = {};
+      metadataRes.data.feeds.forEach((f: any) => {
+        metadataMap[f.uri] = f;
+      });
+
+      const fullFeeds = feedUris.map((uri) => ({
+        uri,
+        ...(metadataMap[uri] || {}),
+      }));
+
+      setSavedFeeds(fullFeeds);
+    } catch (e) {
+      console.error("Failed to fetch saved feeds:", e);
+    }
+  }, [agent, isLoggedIn]);
+
+  // Trigger fetch when logged in
+  useEffect(() => {
+    if (isLoggedIn) fetchSavedFeeds();
+  }, [isLoggedIn, fetchSavedFeeds]);
+  
 // 1. Session Resumption Hook (Keep as is, but ensure it sets a 'restoring' flag if needed)
   useEffect(() => {
     const tryResumeSession = async () => {
@@ -342,6 +424,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             isLoggedIn,
             currentUser,
             currentPostLikes,
+            savedFeeds,
             likesLoading
           }}
       >
