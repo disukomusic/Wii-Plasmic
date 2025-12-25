@@ -28,6 +28,7 @@ export const BlueskyRichText: React.FC<BlueskyRichTextProps> = ({
 
     // Segmenting breaks the text into parts (links, tags, mentions, plain text)
     for (const segment of rt.segments()) {
+        console.log('Segment text:', segment.text);
         if (segment.isLink()) {
             segments.push(
                 <a
