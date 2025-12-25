@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react/display-name */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { BskyAgent } from '@atproto/api';
 import { DataProvider } from '@plasmicapp/host';
