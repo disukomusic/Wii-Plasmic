@@ -58,5 +58,61 @@ PLASMIC.registerComponent(SevenSegmentClock, {
   },
 });
 
+import { BlueskyFeedProvider } from "./components/BlueskyFeedProvider";
+
+PLASMIC.registerComponent(BlueskyFeedProvider, {
+  name: 'BlueskyFeedProvider',
+  props: {
+    // 1. Mode Selection
+    mode: {
+      type: 'choice',
+      options: [
+        { label: 'User Profile', value: 'author' },
+        { label: 'Specific Feed (URL)', value: 'feed' },
+        { label: 'Search Query', value: 'search' },
+        { label: 'My Timeline (Following)', value: 'timeline' },
+      ],
+      defaultValue: 'author'
+    },
+
+    // 2. Conditional Inputs (Use descriptions to guide usage)
+    actor: {
+      type: 'string',
+      defaultValue: 'bsky.app',
+      description: 'Handle (required for User Profile mode)',
+      hidden: (props) => props.mode !== 'author'
+    },
+    feedUrl: {
+      type: 'string',
+      description: 'Full URL (e.g. https://bsky.app/profile/.../feed/...) or at:// URI. Leave empty for Discover.',
+      hidden: (props) => props.mode !== 'feed'
+    },
+    searchQuery: {
+      type: 'string',
+      defaultValue: 'Plasmic',
+      description: 'Search terms',
+      hidden: (props) => props.mode !== 'search'
+    },
+
+    limit: { type: 'number', defaultValue: 20 },
+    
+    // Auth props
+    identifier: { type: 'string', description: 'For Login' },
+    appPassword: { type: 'string', description: 'For Login' },
+    
+    children: 'slot',
+  },
+  providesData: true,
+  refActions: {
+    login: { description: 'Login' },
+    likePost: {
+      description: 'Like a post',
+      argTypes: [
+        { name: 'uri', type: 'string' },
+        { name: 'cid', type: 'string' }
+      ]
+    }
+  }
+});
     
 
