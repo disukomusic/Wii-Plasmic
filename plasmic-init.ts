@@ -58,6 +58,9 @@ PLASMIC.registerComponent(SevenSegmentClock, {
   },
 });
 
+///---------------------------
+/// RICH TEXT HANDLER
+///---------------------------
 import { BlueskyRichText } from "./components/BlueskyRichText";
 
 PLASMIC.registerComponent(BlueskyRichText, {
@@ -70,7 +73,10 @@ PLASMIC.registerComponent(BlueskyRichText, {
     onTagClick: {
       type: 'eventHandler',
       argTypes: [{ name: 'tag', type: 'string' }]
-    }
+    },
+    fontSize: {
+      type: 'number',
+    },
   },
 });
 
