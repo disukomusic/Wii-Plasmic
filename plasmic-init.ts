@@ -58,6 +58,22 @@ PLASMIC.registerComponent(SevenSegmentClock, {
   },
 });
 
+import { BlueskyRichText } from "./components/BlueskyRichText";
+
+PLASMIC.registerComponent(BlueskyRichText, {
+  name: 'BlueskyRichText',
+  props: {
+    record: {
+      type: 'object',
+      defaultValue: { text: "Hello #world https://bsky.app" }
+    },
+    onTagClick: {
+      type: 'eventHandler',
+      argTypes: [{ name: 'tag', type: 'string' }]
+    }
+  },
+});
+
 import { BlueskyFeedProvider } from "./components/BlueskyFeedProvider";
 
 PLASMIC.registerComponent(BlueskyFeedProvider, {
@@ -75,7 +91,7 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
       defaultValue: 'author'
     },
 
-    // 2. Conditional Inputs (Use descriptions to guide usage)
+    // 2. Conditional Inputs
     actor: {
       type: 'string',
       defaultValue: 'bsky.app',
@@ -84,7 +100,7 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
     },
     feedUrl: {
       type: 'string',
-      description: 'Full URL (e.g. https://bsky.app/profile/.../feed/...) or at:// URI. Leave empty for Discover.',
+      description: 'Full URL or at:// URI. Leave empty for Discover.',
       hidden: (props) => props.mode !== 'feed'
     },
     searchQuery: {
@@ -95,26 +111,59 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
     },
 
     limit: { type: 'number', defaultValue: 20 },
-    
+
     // Auth props
     identifier: { type: 'string', description: 'For Login' },
     appPassword: { type: 'string', description: 'For Login' },
-    
+
     children: 'slot',
   },
   providesData: true,
   refActions: {
-    login: { description: 'Login',
-      //needs argtypes to be added in element actions in plasmic editor
-      argTypes: []},
+    login: {
+      description: 'Login',
+      argTypes: []
+    },
+    logout: {
+      description: 'Logout',
+      argTypes: []
+    },
     likePost: {
       description: 'Like a post',
       argTypes: [
         { name: 'uri', type: 'string' },
         { name: 'cid', type: 'string' }
       ]
+    },
+    repostPost: {
+      description: 'Repost a post',
+      argTypes: [
+        { name: 'uri', type: 'string' },
+        { name: 'cid', type: 'string' }
+      ]
+    },
+    fetchPostLikes: {
+      description: 'Fetch users who liked a post',
+      argTypes: [
+        { name: 'uri', type: 'string' },
+        {
+          name: 'maxLikers',
+          type: 'number',
+          defaultValue: 10,
+          description: 'Maximum number of likers to fetch (prevents crashes!)'
+        }
+      ]
     }
   }
 });
-    
 
+import { BlueskyVideo } from "./components/BlueskyVideo";
+
+PLASMIC.registerComponent(BlueskyVideo, {
+  name: 'BlueskyVideo',
+  props: {
+    playlistUrl: 'string',
+    thumbnail: 'string',
+  },
+  importPath: './components/BlueskyVideo',
+});

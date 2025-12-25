@@ -2,7 +2,7 @@
 /* eslint-disable react/display-name */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback, useRef } from 'react';
 import { BskyAgent } from '@atproto/api';
 import { DataProvider } from '@plasmicapp/host';
 
@@ -12,38 +12,32 @@ type FeedMode = 'author' | 'timeline' | 'feed' | 'search';
 interface BlueskyProps {
   mode: FeedMode;
   actor?: string;       // For 'author' mode
-  feedUrl?: string;     // For 'feed' mode (accepts at:// or https://bsky.app/...)
+  feedUrl?: string;     // For 'feed' mode
   searchQuery?: string; // For 'search' mode
   limit?: number;
   identifier?: string;
   appPassword?: string;
   children: any;
+  auth: boolean;
 }
 
-// --- Helper: Parse Feed URI ---
-// Converts "https://bsky.app/profile/user.bsky.social/feed/feed-name" 
-// to "at://did:plc:1234.../app.bsky.feed.generator/feed-name"
 // --- Helper: Parse Feed URI ---
 const resolveFeedUri = async (agent: BskyAgent, url: string): Promise<string | null> => {
   if (!url) return null;
   if (url.startsWith('at://')) return url;
 
-  // Regex matches both handles and DIDs in the URL
   const match = url.match(/profile\/([^/]+)\/feed\/([^/]+)/);
-  
+
   if (match) {
-    const identifier = match[1]; // This could be "user.bsky.social" OR "did:plc:..."
+    const identifier = match[1];
     const feedId = match[2];
-    
     let did = identifier;
 
     try {
-      // ONLY resolve if it is NOT already a DID
       if (!identifier.startsWith('did:')) {
         const res = await agent.resolveHandle({ handle: identifier });
         did = res.data.did;
       }
-      
       return `at://${did}/app.bsky.feed.generator/${feedId}`;
     } catch (e) {
       console.error("Failed to resolve feed identifier:", e);
@@ -53,43 +47,45 @@ const resolveFeedUri = async (agent: BskyAgent, url: string): Promise<string | n
   return null;
 };
 
-// --- Constant: Official 'Discover' Feed URI (Whats Hot) ---
-// This is the URI for the standard "Discover" feed maintained by Bluesky
+// --- Constant: Official 'Discover' Feed URI ---
 const DISCOVER_FEED_URI = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot';
 
 export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
-  const { 
-    mode = 'author', 
-    actor, 
-    feedUrl, 
-    searchQuery, 
-    limit = 20, 
-    identifier, 
-    appPassword, 
-    children 
+  const {
+    mode = 'author',
+    actor,
+    feedUrl,
+    searchQuery,
+    limit = 20,
+    identifier,
+    appPassword,
+    children
   } = props;
 
+  // --- State ---
   const [posts, setPosts] = useState<any[]>([]);
   const [agent] = useState(() => new BskyAgent({ service: 'https://bsky.social' }));
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // New State for Likes
+  const [currentPostLikes, setCurrentPostLikes] = useState<any[]>([]);
+  const [likesLoading, setLikesLoading] = useState(false);
 
   // --- Main Fetch Logic ---
   const fetchFeed = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       let data: any[] = [];
 
       switch (mode) {
         case 'timeline':
-          // Requires Auth usually
           if (!agent.hasSession) {
-             console.warn("Timeline requires login");
-             // Fallback to public discovery if not logged in, or return empty
-             // logic: let's try, if fail we catch
+            console.warn("Timeline requires login");
           }
           const tlRes = await agent.getTimeline({ limit });
           data = tlRes.data.feed;
@@ -98,16 +94,13 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
         case 'search':
           if (!searchQuery) break;
           const searchRes = await agent.app.bsky.feed.searchPosts({ q: searchQuery, limit });
-          // Search returns "posts", not "feed" items (feed items have reply/reason context)
-          // We wrap them to match the structure of other feeds
-          data = searchRes.data.posts.map(post => ({ post })); 
+          data = searchRes.data.posts.map(post => ({ post }));
           break;
 
         case 'feed':
-          // Handle explicit URL or default to Discover if URL is missing/preset
-          const rawUrl = feedUrl || DISCOVER_FEED_URI; 
+          const rawUrl = feedUrl || DISCOVER_FEED_URI;
           const uri = await resolveFeedUri(agent, rawUrl);
-          
+
           if (uri) {
             const feedRes = await agent.app.bsky.feed.getFeed({ feed: uri, limit });
             data = feedRes.data.feed;
@@ -123,7 +116,6 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
           data = authorRes.data.feed;
           break;
       }
-
       setPosts(data);
 
     } catch (e: any) {
@@ -136,25 +128,27 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
 
   // Initial fetch
   useEffect(() => {
-    // If timeline, wait for login unless we want to try (it will fail without auth)
-    if (mode === 'timeline' && !isLoggedIn) return; 
-    
-    fetchFeed();
-  }, [fetchFeed, mode, isLoggedIn]); // Re-fetch if mode changes or user logs in
+    const isTextInputMode = mode === 'search' || mode === 'author';
+    if (mode === 'timeline' && !isLoggedIn) return;
+
+    const handler = setTimeout(() => {
+      fetchFeed();
+    }, isTextInputMode ? 500 : 0);
+
+    return () => clearTimeout(handler);
+  }, [fetchFeed, mode, isLoggedIn, searchQuery, actor]);
 
   // --- Exposed Actions ---
   useImperativeHandle(ref, () => ({
     login: async () => {
-      if (!identifier || !appPassword) {
-        console.error("Missing credentials");
-        return;
-      }
+      if (!identifier || !appPassword) return;
       try {
         setLoading(true);
-        await agent.login({ identifier, password: appPassword });
+        const session = await agent.login({ identifier, password: appPassword });
+        const profile = await agent.getProfile({ actor: session.data.did });
+        setCurrentUser(profile.data);
         setIsLoggedIn(true);
-        console.log("Logged in");
-        await fetchFeed(); // Refresh context for new user
+        await fetchFeed();
       } catch (e) {
         console.error("Login failed:", e);
       } finally {
@@ -162,10 +156,58 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       }
     },
 
+    logout: async () => {
+      try {
+        setLoading(true);
+        await agent.logout();
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+        setPosts([]);
+        setError(null);
+        setCurrentPostLikes([]); // Clear likes on logout
+        if (mode !== 'timeline') {
+          await fetchFeed();
+        }
+      } catch (e) {
+        console.error("Logout failed:", e);
+      } finally {
+        setLoading(false);
+      }
+    },
+
+    fetchPostLikes: async (uri: string, maxLikers: number = 10) => {
+      try {
+        // Set loading state for this specific post
+        setPosts(prev => prev.map(item =>
+            item.post.uri === uri ? { ...item, likesLoading: true } : item
+        ));
+
+        // We pass the 'limit' to the getLikes call
+        const res = await agent.getLikes({
+          uri,
+          limit: maxLikers
+        });
+
+        setPosts(prev => prev.map(item =>
+            item.post.uri === uri
+                ? {
+                  ...item,
+                  likers: res.data.likes, // Now limited by the API side
+                  likesLoading: false
+                }
+                : item
+        ));
+      } catch (e: any) {
+        console.error("Failed to fetch post likes:", e);
+        setPosts(prev => prev.map(item =>
+            item.post.uri === uri ? { ...item, likesLoading: false } : item
+        ));
+      }
+    },
+
     likePost: async (uri: string, cid: string) => {
       if (!agent.hasSession) return console.error("Not logged in");
 
-      // Optimistic update logic (same as before)
       const targetPost = posts.find(p => p.post.uri === uri);
       if(!targetPost) return;
 
@@ -179,9 +221,9 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
           post: {
             ...item.post,
             likeCount: isAlreadyLiked ? Math.max(0, currentCount - 1) : currentCount + 1,
-            viewer: { 
-              ...item.post.viewer, 
-              like: isAlreadyLiked ? undefined : 'pending' 
+            viewer: {
+              ...item.post.viewer,
+              like: isAlreadyLiked ? undefined : 'pending'
             }
           }
         };
@@ -192,23 +234,74 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
           await agent.deleteLike(targetPost.post.viewer.like);
         } else {
           const res = await agent.like(uri, cid);
-          // Confirm with actual URI
-          setPosts(prev => prev.map(item => 
-            item.post.uri === uri 
-              ? { ...item, post: { ...item.post, viewer: { ...item.post.viewer, like: res.uri } } }
-              : item
+          setPosts(prev => prev.map(item =>
+              item.post.uri === uri
+                  ? { ...item, post: { ...item.post, viewer: { ...item.post.viewer, like: res.uri } } }
+                  : item
           ));
         }
       } catch (e) {
         console.error("Like action failed");
-        fetchFeed(); // Revert on fail
+        fetchFeed();
+      }
+    },
+
+    repostPost: async (uri: string, cid: string) => {
+      if (!agent.hasSession) return console.error("No active session");
+
+      const targetPost = posts.find(p => p.post.uri === uri);
+      if (!targetPost) return;
+
+      const existingRepostUri = targetPost.post.viewer?.repost;
+      const isAlreadyReposted = !!existingRepostUri && existingRepostUri !== 'pending';
+
+      setPosts(prev => prev.map(item => {
+        if (item.post.uri !== uri) return item;
+        const currentCount = item.post.repostCount || 0;
+        return {
+          ...item,
+          post: {
+            ...item.post,
+            repostCount: isAlreadyReposted ? Math.max(0, currentCount - 1) : currentCount + 1,
+            viewer: {
+              ...item.post.viewer,
+              repost: isAlreadyReposted ? undefined : 'pending'
+            }
+          }
+        };
+      }));
+
+      try {
+        if (isAlreadyReposted) {
+          await agent.deleteRepost(existingRepostUri);
+        } else {
+          const res = await agent.repost(uri, cid);
+          setPosts(prev => prev.map(item =>
+              item.post.uri === uri
+                  ? { ...item, post: { ...item.post, viewer: { ...item.post.viewer, repost: res.uri } } }
+                  : item
+          ));
+        }
+      } catch (e) {
+        console.error("Bluesky API Error:", e);
+        fetchFeed();
       }
     }
   }));
 
   return (
-    <DataProvider name="bskyData" data={{ posts, loading, isLoggedIn, error }}>
-      {children}
-    </DataProvider>
+      <DataProvider
+          name="bskyData"
+          data={{
+            posts,
+            loading,
+            isLoggedIn,
+            currentUser,
+            currentPostLikes,
+            likesLoading
+          }}
+      >
+        {children}
+      </DataProvider>
   );
 });
