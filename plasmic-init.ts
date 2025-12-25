@@ -80,18 +80,18 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
       type: 'string',
       defaultValue: 'bsky.app',
       description: 'Handle (required for User Profile mode)',
-      hidden: (props: { mode: string; }) => props.mode !== 'author'
+      hidden: (props) => props.mode !== 'author'
     },
     feedUrl: {
       type: 'string',
       description: 'Full URL (e.g. https://bsky.app/profile/.../feed/...) or at:// URI. Leave empty for Discover.',
-      hidden: (props: { mode: string; }) => props.mode !== 'feed'
+      hidden: (props) => props.mode !== 'feed'
     },
     searchQuery: {
       type: 'string',
       defaultValue: 'Plasmic',
       description: 'Search terms',
-      hidden: (props: { mode: string; }) => props.mode !== 'search'
+      hidden: (props) => props.mode !== 'search'
     },
 
     limit: { type: 'number', defaultValue: 20 },
