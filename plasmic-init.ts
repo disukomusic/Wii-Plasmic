@@ -104,7 +104,9 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
   },
   providesData: true,
   refActions: {
-    login: { description: 'Login' },
+    login: { description: 'Login',
+      //needs argtypes to be added in element actions in plasmic editor
+      argTypes: []},
     likePost: {
       description: 'Like a post',
       argTypes: [
