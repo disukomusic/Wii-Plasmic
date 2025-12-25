@@ -74,7 +74,11 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   const [currentPostLikes, setCurrentPostLikes] = useState<any[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
 
-  // --- Main Fetch Logic ---
+  
+  
+  //----------
+  //MAIN FETCHING LOGIC
+  //----------
   const fetchFeed = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -166,11 +170,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     }, delay);
 
     return () => clearTimeout(handler);
-
-    // CRITICAL: We only include the parameters that define the CONTENT.
-    // We do NOT include 'loading' or 'fetchFeed' here.
-    // If fetchFeed is wrapped in useCallback properly, it is safe to include,
-    // but removing 'loading' is what breaks the infinite loop.
+    
   }, [mode, isLoggedIn, searchQuery, actor, limit, feedUrl]);
   
   // --- Exposed Actions ---
