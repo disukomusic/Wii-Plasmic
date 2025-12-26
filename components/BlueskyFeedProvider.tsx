@@ -193,6 +193,43 @@ const resolveFeedUri = async (agent: BskyAgent, url: string): Promise<string | n
   return null;
 };
 
+// --- Helper: Process Embeds ---
+// This handles the logic for combining Images and Quotes
+const createEmbed = (uploadedImages: any[], quoteUri?: string, quoteCid?: string) => {
+  const imageEmbed = uploadedImages.length > 0 ? {
+    $type: 'app.bsky.embed.images',
+    images: uploadedImages.map((img) => ({
+      image: img.blob,
+      alt: img.alt || '' // Alt text is mandatory for accessibility
+    }))
+  } : null;
+
+  const quoteEmbed = (quoteUri && quoteCid) ? {
+    $type: 'app.bsky.embed.record',
+    record: {
+      uri: quoteUri,
+      cid: quoteCid,
+    },
+  } : null;
+
+  // Case 1: Both Images and Quote (Requires 'recordWithMedia')
+  if (imageEmbed && quoteEmbed) {
+    return {
+      $type: 'app.bsky.embed.recordWithMedia',
+      media: imageEmbed,
+      record: quoteEmbed,
+    };
+  }
+
+  // Case 2: Images Only
+  if (imageEmbed) return imageEmbed;
+
+  // Case 3: Quote Only
+  if (quoteEmbed) return quoteEmbed;
+
+  return undefined;
+};
+
 // --- Constant: Official 'Discover' Feed URI ---
 const DISCOVER_FEED_URI = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot';
 
