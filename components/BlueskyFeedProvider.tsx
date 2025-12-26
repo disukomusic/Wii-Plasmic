@@ -615,6 +615,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
 
     createPost: async (
         text: string,
+        images: any[] = [],
         quoteUri?: string,
         quoteCid?: string,
         replyParentUri?: string,
@@ -622,59 +623,80 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
         replyRootUri?: string,
         replyRootCid?: string
     ) => {
-      if (!agent.hasSession) {
-        console.error("Not logged in");
-        return;
-      }
-
-      if (!text || !text.trim()) {
-        console.error("Post text is empty");
-        return;
-      }
+      if (!agent.hasSession) return console.error("Not logged in");
+      if ((!text || !text.trim()) && (!images || images.length === 0)) return;
 
       setPosting(true);
-      setPostError(null);
 
       try {
-        // Base post record
+        const uploadedBlobs: any[] = [];
+
+        if (images && images.length > 0) {
+          const filesToUpload = images.slice(0, 4);
+
+          for (const item of filesToUpload) {
+            let blobToUpload: Blob;
+
+            // 1. Handle Base64 strings (Plasmic/AntD)
+            if (item.contents && typeof item.contents === 'string') {
+              const base64Data = item.contents.split(',')[1] || item.contents;
+              const byteCharacters = atob(base64Data);
+              const byteNumbers = new Array(byteCharacters.length);
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+              }
+              const byteArray = new Uint8Array(byteNumbers);
+              // Initialize as provided type, default to png for safety
+              blobToUpload = new Blob([byteArray], { type: item.type || 'image/png' });
+            }
+            // 2. Handle Standard File Objects
+            else if (item instanceof File) {
+              blobToUpload = item;
+            } else {
+              continue;
+            }
+
+            // --- NEW: COMPRESSION STEP ---
+            // This ensures the blob is < 1MB and resized before upload
+            try {
+              // We force convert to JPEG for better compression ratios
+              blobToUpload = await compressImage(blobToUpload);
+            } catch (err) {
+              console.warn("Compression failed, attempting raw upload:", err);
+            }
+            // -----------------------------
+
+            // Upload the blob to Bluesky
+            // Note: compressImage returns image/jpeg, so we set encoding accordingly
+            const { data } = await agent.uploadBlob(blobToUpload, {
+              encoding: blobToUpload.type // usually 'image/jpeg' after compression
+            });
+
+            uploadedBlobs.push({ blob: data.blob, alt: "" });
+          }
+        }
+
+        // ... Rest of your createPost logic (createEmbed, record, agent.post) ...
+        const embed = createEmbed(uploadedBlobs, quoteUri, quoteCid);
+
         const record: any = {
           $type: "app.bsky.feed.post",
           text: text.trim(),
           createdAt: new Date().toISOString(),
+          embed: embed
         };
 
-        // Optional: reply threading
         if (replyParentUri && replyParentCid) {
           record.reply = {
-            root: {
-              uri: replyRootUri || replyParentUri,
-              cid: replyRootCid || replyParentCid,
-            },
-            parent: {
-              uri: replyParentUri,
-              cid: replyParentCid,
-            },
+            root: { uri: replyRootUri || replyParentUri, cid: replyRootCid || replyParentCid },
+            parent: { uri: replyParentUri, cid: replyParentCid },
           };
         }
 
-        // Optional: quote embed
-        if (quoteUri && quoteCid) {
-          record.embed = {
-            $type: "app.bsky.embed.record",
-            record: {
-              uri: quoteUri,
-              cid: quoteCid,
-            },
-          };
-        }
-
-        // Create post
         const res = await agent.post(record);
-
-        // Refresh feed so the new post appears
         await fetchFeed();
+        return res;
 
-        return res; // res.uri, res.cid
       } catch (e: any) {
         console.error("Create post failed:", e);
         setPostError(e?.message || "Create post failed");

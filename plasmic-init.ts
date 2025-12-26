@@ -160,20 +160,29 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
         }
       ]
     },
+
     createPost: {
-      description: "Create a new post (optionally reply or quote-embed)",
+      description: "Create a new post (text, images, reply, or quote)",
       argTypes: [
-        { name: "text", type: "string" },
+        { name: "text", type: "string", displayName: "Text Content" },
 
-        //Quote embed
-        { name: "quoteUri", type: "string" },
-        { name: "quoteCid", type: "string" },
+        // Updated to accept the array of image objects
+        {
+          name: "images",
+          type: "object",
+          displayName: "Images",
+          description: "Array of { file: File, alt?: string }"
+        },
 
-        //Reply threading
-        { name: "replyParentUri", type: "string" },
-        { name: "replyParentCid", type: "string" },
-        { name: "replyRootUri", type: "string" },
-        { name: "replyRootCid", type: "string" },
+        // Quote embed
+        { name: "quoteUri", type: "string", displayName: "Quote URI" },
+        { name: "quoteCid", type: "string", displayName: "Quote CID" },
+
+        // Reply threading
+        { name: "replyParentUri", type: "string", displayName: "Reply Parent URI" },
+        { name: "replyParentCid", type: "string", displayName: "Reply Parent CID" },
+        { name: "replyRootUri", type: "string", displayName: "Reply Root URI" },
+        { name: "replyRootCid", type: "string", displayName: "Reply Root CID" },
       ]
     }
   },
