@@ -6,6 +6,80 @@ import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallbac
 import { BskyAgent } from '@atproto/api';
 import { DataProvider } from '@plasmicapp/host';
 
+// --- Helper: Image Compression ---
+const compressImage = async (blob: Blob, maxSizeMB: number = 0.95): Promise<Blob> => {
+  // 1. If already small enough, return immediately
+  if (blob.size <= maxSizeMB * 1024 * 1024) return blob;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url); // Clean up memory
+
+      // 2. Calculate new dimensions (Max 2000px usually fits nicely in 1MB)
+      const MAX_DIMENSION = 2000;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width > height) {
+          height *= MAX_DIMENSION / width;
+          width = MAX_DIMENSION;
+        } else {
+          width *= MAX_DIMENSION / height;
+          height = MAX_DIMENSION;
+        }
+      }
+
+      // 3. Draw to Canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        resolve(blob); // Fallback to original if canvas fails
+        return;
+      }
+
+      // White background for JPEGs (handles transparent PNGs converting to black)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // 4. Export to Blob (Iteratively reduce quality if needed)
+      // Start at 0.8 quality (good balance)
+      const attemptCompression = (quality: number) => {
+        canvas.toBlob(
+            (compressedBlob) => {
+              if (!compressedBlob) {
+                resolve(blob);
+                return;
+              }
+
+              // If good, or quality is already too low, resolve
+              if (compressedBlob.size <= maxSizeMB * 1024 * 1024 || quality <= 0.5) {
+                resolve(compressedBlob);
+              } else {
+                // Try again with lower quality
+                attemptCompression(quality - 0.1);
+              }
+            },
+            'image/jpeg',
+            quality
+        );
+      };
+
+      attemptCompression(0.8);
+    };
+
+    img.onerror = (err) => reject(err);
+    img.src = url;
+  });
+};
+
 const flattenEmbed = (embed: any) => {
   if (!embed) return null;
 
