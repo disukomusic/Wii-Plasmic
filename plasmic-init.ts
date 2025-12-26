@@ -199,9 +199,6 @@ PLASMIC.registerComponent(BlueskyVideo, {
   importPath: './components/BlueskyVideo',
 });
 
-
-
-
 import { ContentEditableTextarea } from "./components/ContentEditableTextarea";
 
 PLASMIC.registerComponent(ContentEditableTextarea, {
