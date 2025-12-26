@@ -6,6 +6,78 @@ import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallbac
 import { BskyAgent } from '@atproto/api';
 import { DataProvider } from '@plasmicapp/host';
 
+const flattenEmbed = (embed: any) => {
+  if (!embed) return null;
+
+  // Handle 'recordWithMedia' (Quote + Image)
+  let record = embed.record;
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+    record = embed.record.record;
+  }
+
+  if (!record) return null;
+
+  // Normal Quote: author is at the top level
+  if (record.author) {
+    return record;
+  }
+
+  // Self Quote / Nested Record: author is inside another .record property
+  if (record.record?.author) {
+    return record.record;
+  }
+
+  return null;
+};
+
+const getDisplayImages = (embed: any) => {
+  if (!embed) return [];
+
+  // 1. Standard Images (post.embed.images)
+  if (Array.isArray(embed.images)) {
+    return embed.images;
+  }
+
+  // 2. Quote + Media (post.embed.media.images)
+  if (embed.media && Array.isArray(embed.media.images)) {
+    return embed.media.images;
+  }
+
+  // 3. Fallback: External link thumbnail (wrapped in an array for consistency)
+  if (embed.external?.thumb) {
+    return [{ fullsize: embed.external.thumb, thumb: embed.external.thumb, alt: embed.external.title }];
+  }
+
+  return [];
+};
+
+const getDisplayVideo = (embed: any) => {
+  if (!embed) return null;
+
+  // 1. Standard Video View
+  if (embed.$type === 'app.bsky.embed.video#view') {
+    return {
+      playlist: embed.playlist, // This is the .m3u8 URL
+      thumbnail: embed.thumbnail,
+      alt: embed.alt,
+      cid: embed.cid
+    };
+  }
+
+  // 2. Video + Quote (recordWithMedia)
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view' &&
+      embed.media?.$type === 'app.bsky.embed.video#view') {
+    return {
+      playlist: embed.media.playlist,
+      thumbnail: embed.media.thumbnail,
+      alt: embed.media.alt,
+      cid: embed.media.cid
+    };
+  }
+
+  return null;
+};
+
 // --- Types ---
 type FeedMode = 'author' | 'timeline' | 'feed' | 'search';
 
@@ -120,7 +192,18 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
           data = authorRes.data.feed;
           break;
       }
-      setPosts(data);
+
+      const normalizedData = data.map((item: any) => {
+        const embed = item.post.embed;
+        return {
+          ...item,
+          quote: flattenEmbed(embed),
+          displayImages: getDisplayImages(embed),
+          displayVideo: getDisplayVideo(embed),
+          externalLink: embed?.$type === 'app.bsky.embed.external#view' ? embed.external : null
+        };
+      });
+      setPosts(normalizedData);
 
     } catch (e: any) {
       console.error("Fetch failed:", e);
@@ -425,7 +508,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             currentUser,
             currentPostLikes,
             savedFeeds,
-            likesLoading
+            likesLoading,
           }}
       >
         {children}
