@@ -11,7 +11,7 @@ export type ContentEditableTextareaProps = {
 
     placeholder?: string;
     disabled?: boolean;
-    
+
     className?: string;
     style?: React.CSSProperties;
 
@@ -222,4 +222,3 @@ export const ContentEditableTextarea = React.forwardRef<
         </>
     );
 });
-``
