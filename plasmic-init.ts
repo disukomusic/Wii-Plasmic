@@ -246,6 +246,27 @@ PLASMIC.registerComponent(ContentEditableTextarea, {
     },
   },
   importPath: "./components/ContentEditableTextarea",
+
+  refActions: {
+    clearText: {
+      description: "Reset the text to empty",
+      argTypes: [],
+    },
+    // Optional extras; handy in Studio
+    setText: {
+      description: "Programmatically set the text",
+      argTypes: [{ name: "text", type: "string" }],
+    },
+    focus: {
+      description: "Focus the field",
+      argTypes: [],
+    },
+    blur: {
+      description: "Blur the field",
+      argTypes: [],
+    },
+  },
 });
+
 
 

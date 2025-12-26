@@ -30,8 +30,18 @@ export type ContentEditableTextareaProps = {
     multiline?: boolean;
 };
 
+export type ContentEditableTextareaRef = {
+    /** Reset text to empty */
+    clearText: () => void;
+    /** Programmatically set text */
+    setText: (text: string) => void;
+    /** Focus/blur helpers */
+    focus: () => void;
+    blur: () => void;
+};
+
 export const ContentEditableTextarea = React.forwardRef<
-    HTMLDivElement,
+    ContentEditableTextareaRef,
     ContentEditableTextareaProps
 >(function ContentEditableTextarea(
     {
@@ -51,9 +61,6 @@ export const ContentEditableTextarea = React.forwardRef<
 ) {
     const innerRef = React.useRef<HTMLDivElement | null>(null);
 
-    // Merge forwarded ref
-    React.useImperativeHandle(ref, () => innerRef.current as HTMLDivElement);
-
     const isControlled = value != null;
 
     // Keep DOM in sync with controlled value
@@ -63,7 +70,6 @@ export const ContentEditableTextarea = React.forwardRef<
 
         const domText = innerRef.current.textContent ?? "";
         if (domText !== value) {
-            // Replace text without adding extra nodes
             innerRef.current.textContent = value ?? "";
         }
     }, [isControlled, value]);
@@ -123,6 +129,42 @@ export const ContentEditableTextarea = React.forwardRef<
         selection.removeAllRanges();
         selection.addRange(range);
     }
+
+    // Imperative actions exposed to Plasmic via ref
+    React.useImperativeHandle(
+        ref,
+        (): ContentEditableTextareaRef => ({
+            clearText() {
+                const el = innerRef.current;
+                if (!el) return;
+                if (isControlled) {
+                    // Controlled: ask parent to set value to empty
+                    onChange?.("");
+                } else {
+                    // Uncontrolled: mutate DOM and notify
+                    el.textContent = "";
+                    emitChange();
+                }
+            },
+            setText(text: string) {
+                const el = innerRef.current;
+                if (!el) return;
+                if (isControlled) {
+                    onChange?.(text);
+                } else {
+                    el.textContent = text ?? "";
+                    emitChange();
+                }
+            },
+            focus() {
+                innerRef.current?.focus();
+            },
+            blur() {
+                innerRef.current?.blur();
+            },
+        }),
+        [isControlled, onChange, emitChange]
+    );
 
     // Placeholder behavior via data attr + CSS
     const dataPlaceholder = placeholder ?? "";
