@@ -159,8 +159,24 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
           description: 'Maximum number of likers to fetch (prevents crashes!)'
         }
       ]
+    },
+    createPost: {
+      description: "Create a new post (optionally reply or quote-embed)",
+      argTypes: [
+        { name: "text", type: "string" },
+
+        //Quote embed
+        { name: "quoteUri", type: "string" },
+        { name: "quoteCid", type: "string" },
+
+        //Reply threading
+        { name: "replyParentUri", type: "string" },
+        { name: "replyParentCid", type: "string" },
+        { name: "replyRootUri", type: "string" },
+        { name: "replyRootCid", type: "string" },
+      ]
     }
-  }
+  },
 });
 
 import { BlueskyVideo } from "./components/BlueskyVideo";
@@ -173,3 +189,54 @@ PLASMIC.registerComponent(BlueskyVideo, {
   },
   importPath: './components/BlueskyVideo',
 });
+
+
+
+import { ContentEditableTextarea } from "./components/ContentEditableTextarea";
+
+PLASMIC.registerComponent(ContentEditableTextarea, {
+  name: "ContentEditableTextarea",
+  props: {
+    value: {
+      type: "string",
+      defaultValue: "",
+    },
+    defaultValue: {
+      type: "string",
+      defaultValue: "",
+    },
+    placeholder: {
+      type: "string",
+      defaultValue: "Type here…",
+    },
+    disabled: {
+      type: "boolean",
+      defaultValue: false,
+    },
+    multiline: {
+      type: "boolean",
+      defaultValue: true,
+    },
+    name: {
+      type: "string",
+      description: "Optional: form field name",
+    },
+
+    onChange: {
+      type: "eventHandler",
+      argTypes: [{ name: "text", type: "string" }],
+    },
+
+    onFocus: {
+      type: "eventHandler",
+      argTypes: [],
+    },
+    onBlur: {
+      type: "eventHandler",
+      argTypes: [],
+    },
+  },
+  importPath: "./components/ContentEditableTextarea",
+});
+
+

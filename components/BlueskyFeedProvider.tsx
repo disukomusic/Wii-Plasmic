@@ -142,7 +142,12 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // New State for Likes
+  //Posting
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+
+
+  //Likes
   const [currentPostLikes, setCurrentPostLikes] = useState<any[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
 
@@ -495,7 +500,78 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
         console.error("Bluesky API Error:", e);
         fetchFeed();
       }
-    }
+    },
+
+    createPost: async (
+        text: string,
+        quoteUri?: string,
+        quoteCid?: string,
+        replyParentUri?: string,
+        replyParentCid?: string,
+        replyRootUri?: string,
+        replyRootCid?: string
+    ) => {
+      if (!agent.hasSession) {
+        console.error("Not logged in");
+        return;
+      }
+
+      if (!text || !text.trim()) {
+        console.error("Post text is empty");
+        return;
+      }
+
+      setPosting(true);
+      setPostError(null);
+
+      try {
+        // Base post record
+        const record: any = {
+          $type: "app.bsky.feed.post",
+          text: text.trim(),
+          createdAt: new Date().toISOString(),
+        };
+
+        // Optional: reply threading
+        if (replyParentUri && replyParentCid) {
+          record.reply = {
+            root: {
+              uri: replyRootUri || replyParentUri,
+              cid: replyRootCid || replyParentCid,
+            },
+            parent: {
+              uri: replyParentUri,
+              cid: replyParentCid,
+            },
+          };
+        }
+
+        // Optional: quote embed
+        if (quoteUri && quoteCid) {
+          record.embed = {
+            $type: "app.bsky.embed.record",
+            record: {
+              uri: quoteUri,
+              cid: quoteCid,
+            },
+          };
+        }
+
+        // Create post
+        const res = await agent.post(record);
+
+        // Refresh feed so the new post appears
+        await fetchFeed();
+
+        return res; // res.uri, res.cid
+      } catch (e: any) {
+        console.error("Create post failed:", e);
+        setPostError(e?.message || "Create post failed");
+      } finally {
+        setPosting(false);
+      }
+    },
+
   }));
 
   return (
@@ -509,6 +585,8 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             currentPostLikes,
             savedFeeds,
             likesLoading,
+            posting,
+            postError,
           }}
       >
         {children}

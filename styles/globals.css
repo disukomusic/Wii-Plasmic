@@ -61,3 +61,13 @@ a {
   font-display: swap;
 }
 
+
+@font-face {
+  font-family: "FOT-Rodin ProN DB";
+  src: url("/fonts/FOT-Rodin%20ProN%20DB.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+
