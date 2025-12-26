@@ -62,12 +62,69 @@ a {
 }
 
 
+/* ProN Demi Bold */
 @font-face {
-  font-family: "FOT-Rodin ProN DB";
+  font-family: "FOT-Rodin ProN";
   src: url("/fonts/FOT-Rodin%20ProN%20DB.ttf") format("truetype");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
+
+/* Light */
+@font-face {
+  font-family: "FOT-Rodin Pro";
+  src: url("/fonts/FOT-Rodin%20Pro%20L.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Medium */
+@font-face {
+  font-family: "FOT-Rodin Pro";
+  src: url("/fonts/FOT-Rodin%20Pro%20M.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Demi Bold */
+@font-face {
+  font-family: "FOT-Rodin Pro";
+  src: url("/fonts/FOT-Rodin%20Pro%20DB.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Bold */
+@font-face {
+  font-family: "FOT-Rodin Pro";
+  src: url("/fonts/FOT-Rodin%20Pro%20B.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Extra Bold */
+@font-face {
+  font-family: "FOT-Rodin Pro";
+  src: url("/fonts/FOT-Rodin%20Pro%20EB.otf") format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Ultra Bold */
+@font-face {
+  font-family: "FOT-Rodin Pro";
+  src: url("/fonts/FOT-Rodin%20Pro%20UB.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 
 
