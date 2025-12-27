@@ -61,16 +61,6 @@ a {
   font-display: swap;
 }
 
-
-/* ProN Demi Bold */
-@font-face {
-  font-family: "FOT-Rodin ProN";
-  src: url("/fonts/FOT-Rodin%20ProN%20DB.ttf") format("truetype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* Light */
 @font-face {
   font-family: "FOT-Rodin Pro";
