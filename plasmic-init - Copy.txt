@@ -1,11 +1,4 @@
 import { initPlasmicLoader } from "@plasmicapp/loader-nextjs";
-import { SevenSegmentClock } from "./components/SevenSegmentClock";
-import { BlueskyRichText } from "./components/BlueskyRichText";
-import { BlueskyAuthProvider } from "./lib/BlueskyAuthProvider";
-import { BlueskyFeedProvider } from "./components/BlueskyFeedProvider";
-import { BlueskyVideo } from "./components/BlueskyVideo";
-import { ContentEditableTextarea } from "./components/ContentEditableTextarea";
-import { AutoScrollDiv } from "./components/AutoScrollDiv";
 
 export const PLASMIC = initPlasmicLoader({
   projects: [
@@ -21,6 +14,30 @@ export const PLASMIC = initPlasmicLoader({
   // only use this for development, as this is significantly slower.
   preview: process.env.NODE_ENV !== 'production',
 });
+
+// You can register any code components that you want to use here; see
+// https://docs.plasmic.app/learn/code-components-ref/
+// And configure your Plasmic project to use the host url pointing at
+// the /plasmic-host page of your nextjs app (for example,
+// http://localhost:3000/plasmic-host).  See
+// https://docs.plasmic.app/learn/app-hosting/#set-a-plasmic-project-to-use-your-app-host
+
+// PLASMIC.registerComponent(...);
+
+import { TestPlasmicComponent } from "./components/Test";
+
+PLASMIC.registerComponent(TestPlasmicComponent, {
+  name: "Test Plasmic Component",
+  props: {
+    message: {
+      type: "string",
+      defaultValue: "Hello from Test Component!",
+    },
+    className: "string",
+  },
+});
+
+import { SevenSegmentClock } from "./components/SevenSegmentClock";
 
 PLASMIC.registerComponent(SevenSegmentClock, {
   name: "SevenSegmentClock",
@@ -41,6 +58,11 @@ PLASMIC.registerComponent(SevenSegmentClock, {
   },
 });
 
+///---------------------------
+/// RICH TEXT HANDLER
+///---------------------------
+import { BlueskyRichText } from "./components/BlueskyRichText";
+
 PLASMIC.registerComponent(BlueskyRichText, {
   name: 'BlueskyRichText',
   props: {
@@ -57,6 +79,8 @@ PLASMIC.registerComponent(BlueskyRichText, {
     },
   },
 });
+
+import { BlueskyFeedProvider } from "./components/BlueskyFeedProvider";
 
 PLASMIC.registerComponent(BlueskyFeedProvider, {
   name: 'BlueskyFeedProvider',
@@ -150,10 +174,15 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
       ]
     },
     fetchPostLikes: {
-      description: 'Fetch and attach likers to a specific post object',
+      description: 'Fetch users who liked a post',
       argTypes: [
-        { name: 'uri', type: 'string', displayName: 'Post URI' },
-        { name: 'limit', type: 'number', defaultValue: 5, displayName: 'Number of Likers' }
+        { name: 'uri', type: 'string' },
+        {
+          name: 'maxLikers',
+          type: 'number',
+          defaultValue: 10,
+          description: 'Maximum number of likers to fetch (prevents crashes!)'
+        }
       ]
     },
     createPost: {
@@ -205,6 +234,8 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
   },
 });
 
+import { BlueskyVideo } from "./components/BlueskyVideo";
+
 PLASMIC.registerComponent(BlueskyVideo, {
   name: 'BlueskyVideo',
   props: {
@@ -213,6 +244,8 @@ PLASMIC.registerComponent(BlueskyVideo, {
   },
   importPath: './components/BlueskyVideo',
 });
+
+import { ContentEditableTextarea } from "./components/ContentEditableTextarea";
 
 PLASMIC.registerComponent(ContentEditableTextarea, {
   name: "ContentEditableTextarea",
@@ -279,44 +312,5 @@ PLASMIC.registerComponent(ContentEditableTextarea, {
   },
 });
 
-PLASMIC.registerComponent(AutoScrollDiv, {
-  name: 'AutoScrollDiv',
-  importPath: './components/AutoScrollDiv',
-  // Tell Plasmic about the exposed method
-  refActions: {
-    scrollTo: {
-      description: 'Trigger the scroll manually',
-      argTypes: [], // No arguments needed
-    },
-  },
-  props: {
-    behavior: {
-      type: 'choice',
-      options: ['auto', 'smooth'],
-      defaultValue: 'smooth',
-    },
-    block: {
-      type: 'choice',
-      options: ['start', 'center', 'end'],
-      defaultValue: 'start',
-    },
-    offset: {
-      type: 'number',
-      defaultValue: 0,
-      description: 'Negative value moves scroll UP.',
-    },
-    scrollOnMount: {
-      type: 'boolean',
-      defaultValue: true,
-      description: 'Uncheck this to only scroll when triggered by an interaction.',
-    },
-    disabled: {
-      type: 'boolean',
-      defaultValue: false,
-      hidden: (props) => !props.inEditor, // Optional: hide in production
-    },
-    children: 'slot',
-  },
-});
 
 

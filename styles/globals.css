@@ -92,7 +92,7 @@ a {
 @font-face {
   font-family: "FOT-Rodin Pro";
   src: url("/fonts/FOT-Rodin%20Pro%20B.otf") format("opentype");
-  font-weight: 700;
+  font-weight: bold;
   font-style: normal;
   font-display: swap;
 }

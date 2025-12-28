@@ -1,4 +1,5 @@
-﻿import React from 'react';
+﻿
+import React from 'react';
 import { RichText } from '@atproto/api';
 
 interface BlueskyRichTextProps {
@@ -12,28 +13,32 @@ interface BlueskyRichTextProps {
 }
 
 export const BlueskyRichText: React.FC<BlueskyRichTextProps> = ({
-        record,
-        fontSize = 12,
-        onTagClick,
-        className
-    }) => {
+                                                                record,
+                                                                fontSize = 12,
+                                                                onTagClick,
+                                                                className,
+                                                            }) => {
     if (!record) return null;
 
-    // Initialize RichText helper
     const rt = new RichText({
         text: record.text,
         facets: record.facets,
     });
 
-    const segments = [];
+    const nodes: React.ReactNode[] = [];
     let i = 0;
 
-    // Segmenting breaks the text into parts (links, tags, mentions, plain text)
     for (const segment of rt.segments()) {
+        const key =
+            typeof (segment as any).posStart === 'number' &&
+            typeof (segment as any).posEnd === 'number'
+                ? `${(segment as any).posStart}-${(segment as any).posEnd}`
+                : `${i++}`;
+
         if (segment.isLink()) {
-            segments.push(
+            nodes.push(
                 <a
-                    key={i++}
+                    key={key}
                     href={segment.link?.uri}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -43,25 +48,39 @@ export const BlueskyRichText: React.FC<BlueskyRichTextProps> = ({
                 </a>
             );
         } else if (segment.isTag()) {
-            segments.push(
+            const tag = segment.tag?.tag ?? segment.text?.replace(/^#/, '') ?? '';
+            nodes.push(
                 <span
-                    key={i++}
-                    onClick={() => onTagClick?.(segment.tag?.tag || '')}
-                    style={{ color: '#61C1DF', cursor: 'pointer', fontWeight: '600' }}
+                    key={key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onTagClick?.(tag)}
+                    onKeyDown={(e) =>
+                        (e.key === 'Enter' || e.key === ' ') && onTagClick?.(tag)
+                    }
+                    style={{
+                        color: '#61C1DF',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                    }}
                 >
           {segment.text}
         </span>
             );
         } else if (segment.isMention()) {
-            segments.push(
-                <span key={i++} style={{ color: '#61C1DF' }}>
-            {segment.text}
-          </span>
+            nodes.push(
+                <span key={key} style={{ color: '#61C1DF' }}>
+          {segment.text}
+        </span>
             );
         } else {
-            segments.push(<span key={i++}>{segment.text}</span>);
+            nodes.push(<span key={key}>{segment.text}</span>);
         }
     }
 
-    return <div className={className} style={{ whiteSpace: 'pre-wrap', fontSize }}>{segments}</div>;
+    return (
+        <div className={className} style={{ whiteSpace: 'pre-wrap', fontSize }}>
+            {nodes}
+        </div>
+    );
 };

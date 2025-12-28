@@ -26,14 +26,14 @@ export const SevenSegmentClock: React.FC<SevenSegmentClockProps> = ({
     React.useEffect(() => {
         function tick() {
             const now = new Date();
-            let h = now.getHours();
-            const m = now.getMinutes();
-            const ampm = h >= 12 ? "PM" : "AM";
+            let hours = now.getHours();
+            const minutes = now.getMinutes();
+            const ampm = hours >= 12 ? "PM" : "AM";
 
-            h = h % 12 || 12;
+            hours = hours % 12 || 12;
 
-            const hStr = h < 10 ? " " + h : String(h);
-            const mStr = m < 10 ? "0" + m : String(m);
+            const hStr = hours < 10 ? " " + hours : String(hours);
+            const mStr = minutes < 10 ? "0" + minutes : String(minutes);
 
             setTime({ hrs: hStr, mins: mStr, ampm });
 
