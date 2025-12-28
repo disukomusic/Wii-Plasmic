@@ -8,71 +8,9 @@ import { DataProvider } from '@plasmicapp/host';
 import { useBluesky } from '@/lib/BlueskyAuthProvider';
 import { compressImage, coerceToBlob } from '@/lib/MediaUtils';
 import { flattenEmbed, getDisplayImages, getDisplayVideo, normalizePost} from '@/lib/NormalizeUtils'
-
-/* =========================================================================================
- * URI & EMBED HELPERS
- * ========================================================================================= */
-const resolveFeedUri = async (agent: BskyAgent, url: string): Promise<string | null> => {
-  if (!url) return null;
-  if (url.startsWith('at://')) return url;
-  const match = url.match(/profile\/([^/]+)\/feed\/([^/]+)/);
-  if (match) {
-    const identifier = match[1];
-    const feedId = match[2];
-    try {
-      let did = identifier;
-      if (!identifier.startsWith('did:')) {
-        const res = await agent.resolveHandle({ handle: identifier });
-        did = res.data.did;
-      }
-      return `at://${did}/app.bsky.feed.generator/${feedId}`;
-    } catch (e) {
-      return null;
-    }
-  }
-  return null;
-};
-
-const createEmbed = (uploadedImages: any[], quoteUri?: string, quoteCid?: string) => {
-  const imageEmbed = uploadedImages.length > 0 ? {
-    $type: 'app.bsky.embed.images',
-    images: uploadedImages.map((img) => ({ image: img.blob, alt: img.alt || '' }))
-  } : null;
-
-  const quoteEmbed = (quoteUri && quoteCid) ? {
-    $type: 'app.bsky.embed.record',
-    record: { uri: quoteUri, cid: quoteCid },
-  } : null;
-
-  if (imageEmbed && quoteEmbed) {
-    return { $type: 'app.bsky.embed.recordWithMedia', media: imageEmbed, record: quoteEmbed };
-  }
-  return imageEmbed || quoteEmbed || undefined;
-};
-
-/* =========================================================================================
- * TYPES
- * ========================================================================================= */
-type FeedMode = 'author' | 'timeline' | 'feed' | 'search' | 'thread';
-
-interface BlueskyProps {
-  mode: FeedMode;
-  actor?: string;
-  feedUrl?: string;
-  searchQuery?: string;
-  limit?: number;
-  identifier?: string;
-  appPassword?: string;
-  children: any;
-  auth: boolean;
-
-  // Thread Props
-  threadUri?: string;       // The URI of the post to FOCUS on
-  threadDepth?: number;     // How deep to fetch replies (default 6)
-  threadParentHeight?: number; // How many parents up to fetch (default 80)
-}
-
-const DISCOVER_FEED_URI = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot';
+import { FeedMode, BlueskyProps, DISCOVER_FEED_URI} from "@/lib/types";
+import { resolveFeedUri, createEmbed} from "@/lib/uriEmbed";
+import {updateThreadNode} from "@/lib/UpdateThreadNode";
 
 /* =========================================================================================
  * PROVIDER COMPONENT
@@ -277,33 +215,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   useEffect(() => {
     if (isLoggedIn) fetchSavedFeeds();
   }, [isLoggedIn, fetchSavedFeeds]);
-
-
-  /* -----------------------------------------------------------------------------
-   * HELPER: Recursive Update for Thread Trees
-   * Used for optimistic UI updates (Likes/Reposts)
-   * ----------------------------------------------------------------------------- */
-  const updateThreadNode = (nodes: any[] | any, targetUri: string, updateFn: (node: any) => any): any => {
-    if (Array.isArray(nodes)) {
-      return nodes.map(node => updateThreadNode(node, targetUri, updateFn));
-    }
-    if (!nodes || !nodes.post) return nodes;
-
-    // If this is the node, update it
-    if (nodes.post.uri === targetUri) {
-      return updateFn(nodes);
-    }
-
-    // Otherwise, check its children (replies)
-    if (nodes.replies && nodes.replies.length > 0) {
-      return {
-        ...nodes,
-        replies: updateThreadNode(nodes.replies, targetUri, updateFn)
-      };
-    }
-
-    return nodes;
-  };
+  
 
   /* -----------------------------------------------------------------------------
    * EXPOSED ACTIONS
