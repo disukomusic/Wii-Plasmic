@@ -6,115 +6,8 @@ import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallbac
 import { BskyAgent } from '@atproto/api';
 import { DataProvider } from '@plasmicapp/host';
 import { useBluesky } from '@/lib/BlueskyAuthProvider';
-
-/* =========================================================================================
- * IMAGE UTILITIES
- * ========================================================================================= */
-const compressImage = async (blob: Blob, maxSizeMB: number = 0.95): Promise<Blob> => {
-  if (blob.size <= maxSizeMB * 1024 * 1024) return blob;
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(blob);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const MAX_DIMENSION = 2000;
-      let width = img.width;
-      let height = img.height;
-      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-        if (width > height) {
-          height *= MAX_DIMENSION / width;
-          width = MAX_DIMENSION;
-        } else {
-          width *= MAX_DIMENSION / height;
-          height = MAX_DIMENSION;
-        }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { resolve(blob); return; }
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const attemptCompression = (quality: number) => {
-        canvas.toBlob((compressedBlob) => {
-              if (!compressedBlob) { resolve(blob); return; }
-              if (compressedBlob.size <= maxSizeMB * 1024 * 1024 || quality <= 0.5) {
-                resolve(compressedBlob);
-              } else {
-                attemptCompression(quality - 0.1);
-              }
-            }, 'image/jpeg', quality
-        );
-      };
-      attemptCompression(0.8);
-    };
-    img.onerror = (err) => reject(err);
-    img.src = url;
-  });
-};
-
-/* =========================================================================================
- * DATA NORMALIZATION
- * Standardizes the shape of posts/embeds for easy rendering in Plasmic.
- * ========================================================================================= */
-const flattenEmbed = (embed: any) => {
-  if (!embed) return null;
-  let record = embed.record;
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    record = embed.record.record;
-  }
-  if (!record) return null;
-  if (record.author) return record; // Top level quote
-  if (record.record?.author) return record.record; // Nested quote
-  return null;
-};
-
-const getDisplayImages = (embed: any) => {
-  if (!embed) return [];
-  if (Array.isArray(embed.images)) return embed.images;
-  if (embed.media && Array.isArray(embed.media.images)) return embed.media.images;
-  if (embed.external?.thumb) {
-    return [{ fullsize: embed.external.thumb, thumb: embed.external.thumb, alt: embed.external.title }];
-  }
-  return [];
-};
-
-const getDisplayVideo = (embed: any) => {
-  if (!embed) return null;
-  if (embed.$type === 'app.bsky.embed.video#view') return { playlist: embed.playlist, thumbnail: embed.thumbnail, alt: embed.alt, cid: embed.cid };
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.media?.$type === 'app.bsky.embed.video#view') {
-    return { playlist: embed.media.playlist, thumbnail: embed.media.thumbnail, alt: embed.media.alt, cid: embed.media.cid };
-  }
-  return null;
-};
-
-// Main normalizer: Converts raw API node to a clean "Post" object
-const normalizePost = (node: any) => {
-  const post = node?.post ? node.post : node; // Handle if it's already a post view vs thread view
-  if (!post?.uri) return null;
-
-  const embed = post.embed;
-
-  const isRepost = node?.reason?.$type === 'app.bsky.feed.defs#reasonRepost'; //
-  const repostedBy = isRepost ? node.reason.by : null; //
-  
-  
-  return {
-    post,
-    repostedBy,
-    parent: node.reply?.parent ? normalizePost(node.reply.parent) : null,
-    quote: flattenEmbed(embed),
-    displayImages: getDisplayImages(embed),
-    displayVideo: getDisplayVideo(embed),
-    externalLink: embed?.$type === 'app.bsky.embed.external#view' ? embed.external : null,
-    // Keep children/replies attached if we are normalizing a tree node
-    replies: node.replies ? node.replies.map(normalizePost).filter(Boolean) : [],
-    likers: []
-  };
-};
+import { compressImage, coerceToBlob } from '@/lib/MediaUtils';
+import { flattenEmbed, getDisplayImages, getDisplayVideo, normalizePost} from '@/lib/NormalizeUtils'
 
 /* =========================================================================================
  * URI & EMBED HELPERS
@@ -577,63 +470,172 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     },
     
     
-    // --- Repost (Similar logic to Like) ---
+    // --- Repost (Handles both Thread and List modes) ---
     repostPost: async (uri: string, cid: string) => {
       if (!agent.hasSession) return;
 
-      // (Simplified: assuming we have CID passed in or found similarly to likePost)
-      // For brevity, using same logic pattern:
-
+      // 1. Identify current state to determine if we are Adding or Removing
       let isAlreadyReposted = false;
       let existingRepostUri: string | undefined;
+      let cidToUse: string | undefined = cid;
 
-      // Helper to find viewer state in thread or list... 
-      // [Logic omitted for brevity, identical to likePost lookup]
-      // Assuming we found it:
-      // isAlreadyReposted = ...
+      // Check Thread State
+      if (mode === 'thread') {
+        const checkNode = (n: any): any => {
+          if (!n) return null;
+          if (n.post?.uri === uri) return n;
+          if (n.replies) {
+            for (const r of n.replies) {
+              const found = checkNode(r);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
 
+        // Check focused, ancestors, or replies
+        const node =
+            checkNode(threadFocused) ||
+            threadAncestors.map(checkNode).find(Boolean) ||
+            threadReplies.map(checkNode).find(Boolean);
+
+        if (node) {
+          existingRepostUri = node.post.viewer?.repost;
+          cidToUse = cidToUse || node.post.cid;
+        }
+      }
+      // Check List State
+      else {
+        const item = posts.find((p) => p.post.uri === uri);
+        if (item) {
+          existingRepostUri = item.post.viewer?.repost;
+          cidToUse = cidToUse || item.post.cid;
+        }
+      }
+
+      if (!cidToUse) return; // Can't repost without CID
+      isAlreadyReposted = !!(existingRepostUri && existingRepostUri !== 'pending');
+
+      // 2. Optimistic Update Function
       const performUpdate = (prevItem: any) => {
         const currentCount = prevItem.post.repostCount || 0;
         return {
           ...prevItem,
           post: {
             ...prevItem.post,
-            repostCount: isAlreadyReposted ? Math.max(0, currentCount - 1) : currentCount + 1,
-            viewer: { ...prevItem.post.viewer, repost: isAlreadyReposted ? undefined : 'pending' }
-          }
+            repostCount: isAlreadyReposted
+                ? Math.max(0, currentCount - 1)
+                : currentCount + 1,
+            viewer: {
+              ...prevItem.post.viewer,
+              repost: isAlreadyReposted ? undefined : 'pending',
+            },
+          },
         };
       };
 
+      // 3. Apply Optimistic Updates
       if (mode === 'thread') {
-        setThreadFocused(prev => updateThreadNode(prev, uri, performUpdate));
-        setThreadAncestors(prev => updateThreadNode(prev, uri, performUpdate));
-        setThreadReplies(prev => updateThreadNode(prev, uri, performUpdate));
+        setThreadFocused((prev) => updateThreadNode(prev, uri, performUpdate));
+        setThreadAncestors((prev) => updateThreadNode(prev, uri, performUpdate));
+        setThreadReplies((prev) => updateThreadNode(prev, uri, performUpdate));
       } else {
-        setPosts(prev => prev.map(item => item.post.uri === uri ? performUpdate(item) : item));
+        setPosts((prev) =>
+            prev.map((item) => (item.post.uri === uri ? performUpdate(item) : item))
+        );
       }
 
+      // 4. API Call
       try {
-        // API Call...
-        // [Logic identical to likePost but using agent.repost / agent.deleteRepost]
+        if (isAlreadyReposted) {
+          // Remove repost
+          await agent.deleteRepost(existingRepostUri!);
+
+          // Clear any pending/old repost value in state (count already handled optimistically)
+          const clearRepost = (node: any) => ({
+            ...node,
+            post: {
+              ...node.post,
+              viewer: { ...node.post.viewer, repost: undefined },
+            },
+          });
+
+          if (mode === 'thread') {
+            setThreadFocused((prev) => updateThreadNode(prev, uri, clearRepost));
+            setThreadAncestors((prev) => updateThreadNode(prev, uri, clearRepost));
+            setThreadReplies((prev) => updateThreadNode(prev, uri, clearRepost));
+          } else {
+            setPosts((prev) =>
+                prev.map((item) => (item.post.uri === uri ? clearRepost(item) : item))
+            );
+          }
+        } else {
+          // Create repost
+          const res = await agent.repost(uri, cidToUse);
+
+          // Set the official repost record uri (replace "pending")
+          const finalizeRepost = (node: any) => ({
+            ...node,
+            post: {
+              ...node.post,
+              viewer: { ...node.post.viewer, repost: res.uri },
+            },
+          });
+
+          if (mode === 'thread') {
+            setThreadFocused((prev) => updateThreadNode(prev, uri, finalizeRepost));
+            setThreadAncestors((prev) => updateThreadNode(prev, uri, finalizeRepost));
+            setThreadReplies((prev) => updateThreadNode(prev, uri, finalizeRepost));
+          } else {
+            setPosts((prev) =>
+                prev.map((item) =>
+                    item.post.uri === uri ? finalizeRepost(item) : item
+                )
+            );
+          }
+        }
       } catch (e) {
+        console.error("Repost failed, reverting", e);
         mode === 'thread' ? fetchThread() : fetchFeed();
       }
     },
+
 
     createPost: async (text: string, images: any[] = [], quoteUri?: string, quoteCid?: string, replyParentUri?: string, replyParentCid?: string, replyRootUri?: string, replyRootCid?: string) => {
       if (!agent.hasSession) return;
       setPosting(true);
       try {
-        const uploadedBlobs = [];
-        // ... (Image compression/upload logic matches your original code) ...
+
+        const uploadedBlobs: any[] = [];
+
         if (images.length > 0) {
-          for(const img of images.slice(0,4)) {
-            const compressed = await compressImage(img instanceof File ? img : new Blob()); // simplified
-            const { data } = await agent.uploadBlob(compressed, { encoding: 'image/jpeg' });
+          for (const img of images.slice(0, 4)) {
+            const rawBlob = coerceToBlob(img);
+
+            if (!rawBlob) {
+              console.warn("Skipping image: not convertible to Blob/File", img);
+              continue;
+            }
+
+            console.log("rawBlob", rawBlob.type, rawBlob.size);
+
+            const compressed = await compressImage(rawBlob);
+
+            if (!compressed || compressed.size === 0) {
+              console.warn("Skipping image: compression produced empty blob", {
+                rawType: rawBlob.type,
+                rawSize: rawBlob.size,
+              });
+              continue;
+            }
+
+            const encoding = compressed.type || "image/jpeg";
+            const { data } = await agent.uploadBlob(compressed, { encoding });
+
             uploadedBlobs.push({ blob: data.blob, alt: "" });
           }
         }
-
+        
         const embed = createEmbed(uploadedBlobs, quoteUri, quoteCid);
         const record: any = {
           $type: "app.bsky.feed.post",
