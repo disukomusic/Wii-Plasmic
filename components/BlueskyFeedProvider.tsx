@@ -97,8 +97,14 @@ const normalizePost = (node: any) => {
   if (!post?.uri) return null;
 
   const embed = post.embed;
+
+  const isRepost = node?.reason?.$type === 'app.bsky.feed.defs#reasonRepost'; //
+  const repostedBy = isRepost ? node.reason.by : null; //
+  
+  
   return {
     post,
+    repostedBy,
     parent: node.reply?.parent ? normalizePost(node.reply.parent) : null,
     quote: flattenEmbed(embed),
     displayImages: getDisplayImages(embed),
