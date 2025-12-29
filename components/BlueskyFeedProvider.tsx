@@ -129,13 +129,11 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   }, [agent, isLoggedIn]);
 
   useEffect(() => {
-    if (isLoggedIn) fetchSavedFeeds();
-  }, [isLoggedIn, fetchSavedFeeds]);
-
-  useEffect(() => {
-    if (isLoggedIn) fetchSavedFeeds();
-  }, [isLoggedIn, fetchSavedFeeds]);
-  
+    // Only fetch if logged in AND the user object exists
+    if (isLoggedIn && currentUser) {
+      fetchSavedFeeds();
+    }
+  }, [isLoggedIn, currentUser, fetchSavedFeeds]);
 
   /* -----------------------------------------------------------------------------
    * ACTIONS FOR PLASMIC
