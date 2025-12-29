@@ -12,6 +12,7 @@ type BlueskySessionCtx = {
     currentUser: any | null;
     login: (identifier: string, appPassword?: string) => Promise<void>;
     logout: () => Promise<void>;
+    authInitializing: boolean;
 };
 
 const BlueskyCtx = createContext<BlueskySessionCtx | null>(null);
@@ -123,8 +124,15 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
     const isLoggedIn = !!activeAgent?.session?.did;
 
     const value = useMemo(
-        () => ({ agent: activeAgent, isLoggedIn, currentUser, login, logout }),
-        [activeAgent, isLoggedIn, currentUser]
+        () => ({ 
+            agent: activeAgent, 
+            isLoggedIn, 
+            currentUser,
+            login, 
+            logout,
+            authInitializing: oauth.isInitializing,
+        }),
+        [activeAgent, isLoggedIn, currentUser, oauth.isInitializing]
     );
     
     useEffect(() => {

@@ -30,7 +30,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     children
   } = props;
 
-  const { agent, isLoggedIn, currentUser, login, logout } = useBluesky();
+  const { agent, isLoggedIn, currentUser, login, logout, authInitializing } = useBluesky();
   const authedAgent = getActiveAgentOrNull(agent);
 
   // --- General Feed State ---
@@ -523,6 +523,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             loading: loading || !currentUser,
             error,
             isLoggedIn,
+            authInitializing,
             currentUser: currentUser || {},
             savedFeeds,
 
