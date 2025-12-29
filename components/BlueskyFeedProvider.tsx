@@ -14,6 +14,7 @@ import {updateThreadNode} from "@/lib/UpdateThreadNode";
 import {fetchThreadImpl} from "@/lib/Thread";
 import {fetchFeedImpl} from "@/lib/Feed";
 import {fetchSavedFeedsImpl} from "@/lib/preferences";
+import { getActiveAgentOrNull } from "@/lib/agentUtils";
 
 /* =========================================================================================
  * PROVIDER COMPONENT
@@ -30,6 +31,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   } = props;
 
   const { agent, isLoggedIn, currentUser, login, logout } = useBluesky();
+  const authedAgent = getActiveAgentOrNull(agent);
 
   // --- General Feed State ---
   const [posts, setPosts] = useState<any[]>([]);
@@ -54,8 +56,8 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
    * THREAD FETCHING
    * ----------------------------------------------------------------------------- */
   const fetchThread = useCallback(async () => {
-    await fetchThreadImpl({
-      agent,
+        await fetchThreadImpl({
+      agent : authedAgent ?? agent,
       threadUri,
       depth: props.threadDepth ?? 6,
       parentHeight: props.threadParentHeight ?? 80,
@@ -65,12 +67,17 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       setThreadFocused,
       setThreadReplies,
     });
-  }, [agent, threadUri, props.threadDepth, props.threadParentHeight]);
+  }, [authedAgent, agent, threadUri, props.threadDepth, props.threadParentHeight]);
   
   /* -----------------------------------------------------------------------------
    * FEED FETCHING
    * ----------------------------------------------------------------------------- */
   const fetchFeed = useCallback(async () => {
+
+
+    console.log('[bsky] mode=', mode, 'actor=', actor, 'isLoggedIn=', isLoggedIn);
+    console.log('[bsky] authedAgent.did=', authedAgent?.session?.did);
+
     if (mode === "thread") {
       await fetchThread();
       return;
@@ -81,7 +88,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
 
     try {
       const normalizedData = await fetchFeedImpl({
-        agent,
+        agent : authedAgent ?? agent,
         mode,
         actor,
         feedUrl,
@@ -96,7 +103,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     } finally {
       setLoading(false);
     }
-  }, [agent, mode, actor, feedUrl, searchQuery, limit, fetchThread]);
+  }, [authedAgent, agent, mode, actor, feedUrl, searchQuery, limit, fetchThread]);
 
   // Trigger fetch on prop changes
   useEffect(() => {
@@ -121,12 +128,12 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     if (!isLoggedIn) return;
 
     try {
-      const feeds = await fetchSavedFeedsImpl(agent);
+      const feeds = await fetchSavedFeedsImpl(authedAgent);
       setSavedFeeds(feeds);
     } catch (e) {
       console.error("Failed to fetch saved feeds:", e);
     }
-  }, [agent, isLoggedIn]);
+  }, [authedAgent, isLoggedIn]);
 
   useEffect(() => {
     // Only fetch if logged in AND the user object exists
@@ -151,7 +158,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
 
     // --- Like Post (Handles both Thread and List modes) ---
     likePost: async (uri: string, cid?: string) => {
-      if (!agent) return;
+      if (!authedAgent) return;
       // 1. Identify current state to determine if we are Adding or Removing
       let isAlreadyLiked = false;
       let existingLikeUri: string | undefined;
@@ -220,7 +227,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       // 4. API Call
       try {
         if (isAlreadyLiked) {
-          await agent.deleteLike(existingLikeUri!);
+          await authedAgent.deleteLike(existingLikeUri!);
 
           // When unliking, remove the current user from the likers array
           const removeSelf = (node: any) => ({
@@ -238,10 +245,10 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             setPosts(prev => prev.map(item => item.post.uri === uri ? removeSelf(item) : item));
           }
         } else {
-          const res = await agent.like(uri, cidToUse);
+          const res = await authedAgent.like(uri, cidToUse);
 
           // Fetch the latest 5 likers to show avatars
-          const likersRes = await agent.getLikes({ uri, limit: 5 });
+          const likersRes = await authedAgent.getLikes({ uri, limit: 5 });
           const latestLikers = likersRes.data.likes.map(l => l.actor);
 
           // Combine both updates: The official Like URI AND the Liker list
@@ -270,11 +277,11 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     
     // --- Fetch post liker (users) ---
     fetchPostLikes: async (uri: string, limit: number = 20) => {
-      if (!agent || !uri) return;
+      if (!authedAgent || !uri) return;
 
       try {
         // 1. Fetch the likers from the API
-        const res = await agent.getLikes({ uri, limit });
+        const res = await authedAgent.getLikes({ uri, limit });
         const actorList = res.data.likes.map(l => l.actor);
 
         // 2. Define the update function
@@ -301,7 +308,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     
     // --- Repost (Handles both Thread and List modes) ---
     repostPost: async (uri: string, cid: string) => {
-      if (!agent) return;
+      if (!authedAgent) return;
       // 1. Identify current state to determine if we are Adding or Removing
       let isAlreadyReposted = false;
       let existingRepostUri: string | undefined;
@@ -377,7 +384,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       try {
         if (isAlreadyReposted) {
           // Remove repost
-          await agent.deleteRepost(existingRepostUri!);
+          await authedAgent.deleteRepost(existingRepostUri!);
 
           // Clear any pending/old repost value in state (count already handled optimistically)
           const clearRepost = (node: any) => ({
@@ -399,7 +406,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
           }
         } else {
           // Create repost
-          const res = await agent.repost(uri, cidToUse);
+          const res = await authedAgent.repost(uri, cidToUse);
 
           // Set the official repost record uri (replace "pending")
           const finalizeRepost = (node: any) => ({
@@ -430,7 +437,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
 
 
     createPost: async (text: string, images: any[] = [], quoteUri?: string, quoteCid?: string, replyParentUri?: string, replyParentCid?: string, replyRootUri?: string, replyRootCid?: string) => {
-      if (!agent) return;      
+      if (!authedAgent) return;      
       setPosting(true);
       try {
 
@@ -458,7 +465,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             }
 
             const encoding = compressed.type || "image/jpeg";
-            const { data } = await agent.uploadBlob(compressed, { encoding });
+            const { data } = await authedAgent.uploadBlob(compressed, { encoding });
 
             uploadedBlobs.push({ blob: data.blob, alt: "" });
           }
@@ -479,9 +486,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
           };
         }
 
-        await agent.post(record);
-
-        // Refresh view
+        await authedAgent.post(record);
         mode === 'thread' ? fetchThread() : fetchFeed();
       } catch(e: any) {
         setPostError(e.message);

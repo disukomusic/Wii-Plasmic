@@ -3,6 +3,8 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useOAuth } from "@/lib/useOauth";
+import { BskyAgent } from '@atproto/api';
+
 
 type BlueskySessionCtx = {
     agent: any; // Agent | null
@@ -17,6 +19,8 @@ const BlueskyCtx = createContext<BlueskySessionCtx | null>(null);
 const CLIENT_ID =
     process.env.NEXT_PUBLIC_ATPROTO_CLIENT_ID || "https://wii.suko.pet/client-metadata.json";
 
+const IS_DEV = process.env.NODE_ENV === "development";
+
 export function BlueskyAuthProvider({ children }: { children: React.ReactNode }) {
     const { agent, session, isInitializing, signIn, signOut } = useOAuth({
         clientId: CLIENT_ID,
@@ -25,37 +29,107 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
         getScope: () => "atproto transition:generic",
     });
 
+    const oauth = useOAuth({
+        clientId: process.env.NEXT_PUBLIC_ATPROTO_CLIENT_ID || "https://wii.suko.pet/client-metadata.json",
+        handleResolver: "https://bsky.social",
+        responseMode: "query",
+    });
+
+    const [devAgent, setDevAgent] = useState<BskyAgent | null>(null);
     const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-    const isLoggedIn = !!agent && !!session && !isInitializing;
+    const activeAgent = IS_DEV ? devAgent : oauth.agent;
+    const isLoggedIn = !!activeAgent?.session?.did;
 
     useEffect(() => {
         (async () => {
-            if (!agent || !session) {
-                setCurrentUser(null);
+            if (IS_DEV) {
+                if (!devAgent) { setCurrentUser(null); return; }
+
+                const did = devAgent.session?.did;
+                if (!did) {
+                    // No session yet—e.g., before login or if resume failed
+                    setCurrentUser(null);
+                } else {
+                    const profile = await devAgent.getProfile({ actor: did });
+                    setCurrentUser(profile.data);
+                }
+
                 return;
             }
-            // Using the authenticated Agent created from the OAuth session [3](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/use-oauth.ts)
+
+            if (!agent || !session) { setCurrentUser(null); return; }
             const profile = await agent.getProfile({ actor: session.did });
             setCurrentUser(profile.data);
         })();
-    }, [agent, session]);
+    }, [IS_DEV, devAgent, agent, session]);
 
-    const login = async (identifier: string, _appPassword?: string) => {
-        // identifier can be handle, DID, or PDS url (same as official example UI) [10](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/oauth-sign-in-form.tsx)[3](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/use-oauth.ts)
-        await signIn(identifier);
+    
+    const DEV_SESSION_KEY = 'bskyDevSession';
+
+    const makeDevAgent = () =>
+        new BskyAgent({
+            service: 'https://bsky.social',
+            // This callback is invoked whenever the agent updates its session.
+            persistSession: (evt, session) => {
+                if (session) {
+                    localStorage.setItem(DEV_SESSION_KEY, JSON.stringify(session));
+                } else {
+                    localStorage.removeItem(DEV_SESSION_KEY);
+                }
+            },
+        });
+
+
+    useEffect(() => {
+        if (!IS_DEV) return;
+
+        const saved = typeof window !== 'undefined'
+            ? localStorage.getItem(DEV_SESSION_KEY)
+            : null;
+
+        if (!saved) {
+            setDevAgent(null);
+            return;
+        }
+
+        (async () => {
+            try {
+                const session = JSON.parse(saved);
+                const agent = makeDevAgent();
+                await agent.resumeSession(session);
+                setDevAgent(agent);
+            } catch (err) {
+                console.error('Failed to resume dev session', err);
+                localStorage.removeItem(DEV_SESSION_KEY);
+                setDevAgent(null);
+            }
+        })();
+    }, []);
+
+
+    const login = async (identifier: string, appPassword?: string) => {
+        if (IS_DEV) {
+            const agent = makeDevAgent();
+            await agent.login({ identifier, password: appPassword! });
+            setDevAgent(agent);
+        } else {
+            await oauth.signIn(identifier); // unchanged
+        }
     };
 
+    
     const logout = async () => {
         await signOut();
         setCurrentUser(null);
-    };
-
+    }
+    
     const value = useMemo(
-        () => ({ agent, isLoggedIn, currentUser, login, logout }),
-        [agent, isLoggedIn, currentUser]
+        () => ({ agent: activeAgent, isLoggedIn, currentUser, login, logout }),
+        [activeAgent, isLoggedIn, currentUser]
     );
 
+    
     return <BlueskyCtx.Provider value={value}>{children}</BlueskyCtx.Provider>;
 }
 

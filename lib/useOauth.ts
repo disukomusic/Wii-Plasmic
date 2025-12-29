@@ -38,44 +38,67 @@ export function useOAuth(options: {
     const clientRef = useRef<BrowserOAuthClient | null>(null);
 
     // Initialize client and restore/complete login
+
     useEffect(() => {
         const ac = new AbortController();
+        let mounted = true;
         setIsInitializing(true);
 
-        BrowserOAuthClient.load({
-            clientId,
-            handleResolver,
-            responseMode,
-            plcDirectoryUrl,
-            fetch: globalThis.fetch,
-            signal: ac.signal,
-        })
-            .then(async (c) => {
-                if (ac.signal.aborted) {
+        (async () => {
+            try {
+                const c = await BrowserOAuthClient.load({
+                    clientId,
+                    handleResolver,
+                    responseMode,
+                    plcDirectoryUrl,
+                    fetch: globalThis.fetch,
+                    signal: ac.signal,
+                });
+
+                if (!mounted || ac.signal.aborted) {
+                    // If we were aborted during load, free resources and bail.
                     c.dispose();
                     return;
                 }
+
                 clientRef.current = c;
                 setClient(c);
 
                 try {
                     const r = await c.init();
-                    if (r) {
-                        setSession(r.session);
-                    }
+                    if (!mounted || ac.signal.aborted) return;
+                    if (r) setSession(r.session);
                 } catch (err) {
-                    if (err instanceof LoginContinuedInParentWindowError) {
-                        setIsLoginPopup(true);
+                    // If the init was aborted, silently ignore.
+                    if ((err as any)?.name === "AbortError") {
+                        // No-op: effect was cleaned up.
+                    } else if (err instanceof LoginContinuedInParentWindowError) {
+                        if (mounted) setIsLoginPopup(true);
                     } else {
                         console.error("OAuth init failed:", err);
                     }
                 }
-            })
-            .finally(() => {
-                if (!ac.signal.aborted) setIsInitializing(false);
-            });
+            } catch (err) {
+                // If the load was aborted, silently ignore.
+                if ((err as any)?.name !== "AbortError") {
+                    console.error("OAuth client load failed:", err);
+                }
+            } finally {
+                if (mounted && !ac.signal.aborted) setIsInitializing(false);
+            }
+        })();
 
-        return () => ac.abort();
+        return () => {
+            mounted = false;
+            // Make cleanup idempotent; abort may throw in some environments, so guard.
+            if (!ac.signal.aborted) {
+                try {
+                    ac.abort();
+                } catch {
+                    // Ignore any abort errors in cleanup.
+                }
+            }
+        };
     }, [clientId, handleResolver, responseMode, plcDirectoryUrl]);
 
     const signIn = useCallback(
