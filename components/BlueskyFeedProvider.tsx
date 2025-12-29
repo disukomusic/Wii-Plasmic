@@ -52,6 +52,22 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   const [threadFocused, setThreadFocused] = useState<any>(null);     // The main post
   const [threadReplies, setThreadReplies] = useState<any[]>([]);     // The children tree
 
+  // --- Actor Profile State ---
+  const [actorProfile, setActorProfile] = useState<any>(null);
+  const [actorProfileLoading, setActorProfileLoading] = useState(false);
+  const [actorProfileError, setActorProfileError] = useState<string | null>(null);
+  const [actorFollowers, setActorFollowers] = useState<any[]>([]);
+  const [actorFollowing, setActorFollowing] = useState<any[]>([]);
+  const [actorLists, setActorLists] = useState<any[]>([]);
+  
+  // --- Actor Fetchers Hook ---
+  const { fetchActorFollowers, fetchActorFollowing, fetchActorLists } = useActorFetchers({
+    agent,
+    actor,
+    setActorFollowers,
+    setActorFollowing,
+    setActorLists,
+  });
   /* -----------------------------------------------------------------------------
    * THREAD FETCHING
    * ----------------------------------------------------------------------------- */
@@ -100,6 +116,28 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     }
   }, [agent, mode, actor, feedUrl, searchQuery, limit, fetchThread]);
 
+  // --- ACTOR PROFILE FETCHING ---
+  const fetchActorProfile = useCallback(async () => {
+    if (mode !== 'author' || !actor || !agent) {
+      setActorProfile(null);
+      return;
+    }
+
+    setActorProfileLoading(true);
+    setActorProfileError(null);
+
+    try {
+      const res = await agent.getProfile({ actor });
+      setActorProfile(res.data);
+    } catch (e: any) {
+      console.error("Failed to fetch actor profile:", e);
+      setActorProfileError(e?.message ?? "Error fetching profile");
+      setActorProfile(null);
+    } finally {
+      setActorProfileLoading(false);
+    }
+  }, [agent, mode, actor]);
+  
   // Trigger fetch on prop changes
   useEffect(() => {
     if (loading) return;
@@ -115,6 +153,15 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     const handler = setTimeout(() => fetchFeed(), delay);
     return () => clearTimeout(handler);
   }, [mode, isLoggedIn, searchQuery, actor, limit, feedUrl, threadUri]);
+
+  // Fetch actor profile when in author mode
+  useEffect(() => {
+    if (mode === 'author' && actor) {
+      fetchActorProfile();
+    } else {
+      setActorProfile(null);
+    }
+  }, [mode, actor, fetchActorProfile]);
   
   /* -----------------------------------------------------------------------------
    * PREFERENCES (Saved Feeds)
@@ -137,15 +184,32 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     }
   }, [isLoggedIn, currentUser, fetchSavedFeeds]);
 
+  //Dev mode autologin with user and passwod props
+  useEffect(() => {
+    if (isInPlasmicEditor() && props.identifier && props.appPassword && !isLoggedIn) {
+      login(props.identifier, props.appPassword);
+    }
+  }, [props.identifier, props.appPassword, isLoggedIn]);
+  
+
   /* -----------------------------------------------------------------------------
    * ACTIONS FOR PLASMIC
    * ----------------------------------------------------------------------------- */
   useImperativeHandle(ref, () => ({
+
+    // --- Fetchers for Actor View ---
+    fetchActorFollowers,
+    fetchActorFollowing,
+    fetchActorLists,
+    
+    // --- Login ---
     login: async () => {
       if (props.identifier && props.appPassword) {
         await login(props.identifier, props.appPassword);
       }
     },
+    
+    // --- Logout ---
     logout: async () => {
       await logout();
       setPosts([]);
@@ -503,6 +567,13 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             isLoggedIn,
             currentUser: currentUser || {},
             savedFeeds,
+
+            actorProfile,
+            actorProfileLoading,
+            actorProfileError,
+            actorFollowers,
+            actorFollowing,
+            actorLists,
 
             // THREAD SPECIFIC DATA
             threadAncestors,

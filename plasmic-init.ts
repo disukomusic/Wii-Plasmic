@@ -127,6 +127,7 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
   },
   providesData: true,
   refActions: {
+    // --- Auth Actions ---
     login: {
       description: 'Login',
       argTypes: []
@@ -135,6 +136,8 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
       description: 'Logout',
       argTypes: []
     },
+    
+    // --- Post Interactions ---
     likePost: {
       description: 'Like a post',
       argTypes: [
