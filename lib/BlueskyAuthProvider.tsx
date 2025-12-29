@@ -22,11 +22,12 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
         clientId: CLIENT_ID,
         handleResolver: "https://bsky.social",
         responseMode: "query",
+        getScope: () => "atproto transition:generic",
     });
 
     const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-    const isLoggedIn = !!agent && !!session;
+    const isLoggedIn = !agent && !!session && !isInitializing;
 
     useEffect(() => {
         (async () => {
