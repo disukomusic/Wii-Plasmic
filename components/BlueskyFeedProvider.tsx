@@ -73,8 +73,6 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
    * FEED FETCHING
    * ----------------------------------------------------------------------------- */
   const fetchFeed = useCallback(async () => {
-
-
     console.log('[bsky] mode=', mode, 'actor=', actor, 'isLoggedIn=', isLoggedIn);
     console.log('[bsky] authedAgent.did=', authedAgent?.session?.did);
 
@@ -107,19 +105,16 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
 
   // Trigger fetch on prop changes
   useEffect(() => {
-    if (loading) return;
+    if (authInitializing) return; // Wait until OAuth is done checking storage
+
     const isTextInputMode = mode === 'search' || mode === 'author';
     const delay = isTextInputMode ? 500 : 0;
 
-    // Immediate fetch for thread mode to feel snappy
-    if (mode === 'thread') {
-      fetchThread();
-      return;
-    }
-
     const handler = setTimeout(() => fetchFeed(), delay);
     return () => clearTimeout(handler);
-  }, [mode, isLoggedIn, searchQuery, actor, limit, feedUrl, threadUri]);
+  }, [mode, isLoggedIn, authInitializing, authedAgent, searchQuery, actor, limit, feedUrl, threadUri]);
+// Added authInitializing and authedAgent to deps
+  
   
   /* -----------------------------------------------------------------------------
    * PREFERENCES (Saved Feeds)
