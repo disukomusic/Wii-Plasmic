@@ -364,7 +364,6 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       }
     },
     
-    
     // --- Repost (Handles both Thread and List modes) ---
     repostPost: async (uri: string, cid: string) => {
       if (!agent) return;
@@ -494,7 +493,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       }
     },
 
-
+    // --- Create Post (text, images, quote, reply) ---
     createPost: async (text: string, images: any[] = [], quoteUri?: string, quoteCid?: string, replyParentUri?: string, replyParentCid?: string, replyRootUri?: string, replyRootCid?: string) => {
       if (!agent) return;      
       setPosting(true);

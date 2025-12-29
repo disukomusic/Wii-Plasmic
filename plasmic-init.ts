@@ -74,7 +74,6 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
       defaultValue: 'author'
     },
 
-    // 2. Conditional Inputs
     actor: {
       type: 'string',
       defaultValue: 'bsky.app',
@@ -159,6 +158,22 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
         { name: 'limit', type: 'number', defaultValue: 5, displayName: 'Number of Likers' }
       ]
     },
+    
+    // --- Actor Fetchers ---
+    fetchActorFollowers: {
+      description: 'Fetch followers for an actor',
+      argTypes: [{ name: 'actor', type: 'string', displayName: 'Actor Handle (optional)' }]
+    },
+    fetchActorFollowing: {
+      description: 'Fetch following for an actor',
+      argTypes: [{ name: 'actor', type: 'string', displayName: 'Actor Handle (optional)' }]
+    },
+    fetchActorLists: {
+      description: 'Fetch lists for an actor',
+      argTypes: [{ name: 'actor', type: 'string', displayName: 'Actor Handle (optional)' }]
+    },
+    
+    // --- Post Creation & Thread Fetching ---
     createPost: {
       description: "Create a new post (text, images, reply, or quote)",
       argTypes: [
