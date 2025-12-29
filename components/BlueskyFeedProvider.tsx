@@ -13,6 +13,7 @@ import { resolveFeedUri, createEmbed} from "@/lib/uriEmbed";
 import {updateThreadNode} from "@/lib/UpdateThreadNode";
 import {fetchThreadImpl} from "@/lib/Thread";
 import {fetchFeedImpl} from "@/lib/Feed";
+import {fetchSavedFeedsImpl} from "@/lib/preferences";
 
 /* =========================================================================================
  * PROVIDER COMPONENT
