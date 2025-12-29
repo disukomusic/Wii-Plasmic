@@ -1,7 +1,7 @@
 ﻿import type { BskyAgent } from "@atproto/api";
 import { normalizePost } from "@/lib/NormalizeUtils";
 import { resolveFeedUri } from "./uriEmbed";
-import { DISCOVER_FEED_URI } from "./types";
+import { DISCOVER_FEED_URI } from "./Types";
 
 /**
  * Options used to fetch a list of posts from various Bluesky sources.
