@@ -1,5 +1,4 @@
 ﻿
-// lib/useOauth.ts
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -38,74 +37,45 @@ export function useOAuth(options: {
 
     const clientRef = useRef<BrowserOAuthClient | null>(null);
 
+    // Initialize client and restore/complete login
     useEffect(() => {
         const ac = new AbortController();
-        let didAbort = false;
         setIsInitializing(true);
 
-        // Helper to guard setState after abort
-        const safeSet = <T,>(setter: (v: T) => void, v: T) => {
-            if (!didAbort) setter(v);
-        };
-
-        const run = async () => {
-            try {
-                const c = await BrowserOAuthClient.load({
-                    clientId,
-                    handleResolver,
-                    responseMode,
-                    plcDirectoryUrl,
-                    fetch: globalThis.fetch,
-                    signal: ac.signal, // okay to pass; just handle AbortError
-                });
-
+        BrowserOAuthClient.load({
+            clientId,
+            handleResolver,
+            responseMode,
+            plcDirectoryUrl,
+            fetch: globalThis.fetch,
+            signal: ac.signal,
+        })
+            .then(async (c) => {
                 if (ac.signal.aborted) {
-                    // Cleanup: don't retain client, dispose
                     c.dispose();
                     return;
                 }
-
                 clientRef.current = c;
-                safeSet(setClient, c);
+                setClient(c);
 
                 try {
                     const r = await c.init();
-                    if (r && !ac.signal.aborted) {
-                        safeSet(setSession, r.session);
+                    if (r) {
+                        setSession(r.session);
                     }
-                } catch (err: any) {
-                    // Ignore AbortError from init()/internal fetch
-                    if (err?.name === "AbortError") {
-                        return;
-                    }
+                } catch (err) {
                     if (err instanceof LoginContinuedInParentWindowError) {
-                        safeSet(setIsLoginPopup, true);
+                        setIsLoginPopup(true);
                     } else {
                         console.error("OAuth init failed:", err);
                     }
                 }
-            } catch (err: any) {
-                // Ignore AbortError from load()
-                if (err?.name === "AbortError") return;
-                console.error("OAuth client load failed:", err);
-            } finally {
-                if (!ac.signal.aborted) safeSet(setIsInitializing, false);
-            }
-        };
+            })
+            .finally(() => {
+                if (!ac.signal.aborted) setIsInitializing(false);
+            });
 
-        run();
-
-        return () => {
-            didAbort = true;
-            ac.abort(); // This will trigger AbortError in pending ops—expected in dev
-            // Dispose any created client
-            if (clientRef.current) {
-                try {
-                    clientRef.current.dispose();
-                } catch {/* no-op */}
-                clientRef.current = null;
-            }
-        };
+        return () => ac.abort();
     }, [clientId, handleResolver, responseMode, plcDirectoryUrl]);
 
     const signIn = useCallback(
