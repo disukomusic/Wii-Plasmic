@@ -20,8 +20,11 @@ export const BlueskyRichText: React.FC<BlueskyRichTextProps> = ({
                                                             }) => {
     if (!record) return null;
 
-    const rt = new RichText({
-        text: record.text,
+    //fix punctuation that renders weird in the font
+    const normalizedText = record.text.replace(/[\u2018\u2019\u02BC]/g, "'");
+    
+    const rt = new RichText({   
+        text: normalizedText,
         facets: record.facets,
     });
 
