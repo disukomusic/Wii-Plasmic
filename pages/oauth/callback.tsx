@@ -1,8 +1,9 @@
-﻿export default function OAuthCallback() {
+﻿
+export default function OAuthCallback() {
     return (
         <div style={{ padding: 24 }}>
-            <h1>signing you in…</h1>
-            <p>You can close this tab if it doesn’t redirect automatically.</p>
+            <h1>Signing you in…</h1>
+            <p>If this doesn’t redirect automatically, go back to the app tab.</p>
         </div>
     );
 }
