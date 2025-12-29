@@ -27,7 +27,7 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
 
     const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-    const isLoggedIn = !agent && !!session && !isInitializing;
+    const isLoggedIn = !!agent && !!session && !isInitializing;
 
     useEffect(() => {
         (async () => {
