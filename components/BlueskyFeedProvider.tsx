@@ -147,6 +147,15 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
    * ----------------------------------------------------------------------------- */
   useImperativeHandle(ref, () => ({
     login: async () => {
+
+
+      console.log('[bsky] attempt login identifier=', props.identifier);
+      if (props.identifier) {
+        await login(props.identifier);
+      } else {
+        console.warn('[bsky] No identifier provided to login()');
+      }
+
       if (props.identifier && props.appPassword) {
         await login(props.identifier, props.appPassword);
       }
