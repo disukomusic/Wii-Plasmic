@@ -34,9 +34,6 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
     const [devAgent, setDevAgent] = useState<BskyAgent | null>(null);
     const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-    // const activeAgent = IS_DEV ? devAgent : oauth.agent;
-    // const isLoggedIn = !!activeAgent?.session?.did;
-
     useEffect(() => {
         (async () => {
             if (IS_DEV) {
@@ -60,7 +57,7 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
             
             setCurrentUser(profile.data);
         })();
-    }, [IS_DEV, devAgent, agent, session]);
+    }, [IS_DEV, devAgent]);
 
     
     const DEV_SESSION_KEY = 'bskyDevSession';
