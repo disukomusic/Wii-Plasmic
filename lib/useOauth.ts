@@ -79,15 +79,17 @@ export function useOAuth(options: {
     }, [clientId, handleResolver, responseMode, plcDirectoryUrl]);
 
     const signIn = async (handle: string) => {
-        try {
-            const client = await BrowserOAuthClient.load({
-                clientId: clientId,
-                handleResolver: handleResolver,
-            });
+        if (!client) {
+            throw new Error("OAuth client not initialized");
+        }
 
-            // This should trigger a redirect to Bluesky's auth page
+        try {
+            const scope = await getScope();
+            const state = await getState();
+
             await client.signIn(handle, {
-                scope: getScope(),
+                scope,
+                state,
                 signal: new AbortController().signal,
             });
         } catch (error) {
@@ -95,6 +97,7 @@ export function useOAuth(options: {
             throw error;
         }
     };
+
 
 
     const signOut = useCallback(async () => {
