@@ -14,6 +14,7 @@ import {updateThreadNode} from "@/lib/UpdateThreadNode";
 import {fetchThreadImpl} from "@/lib/Thread";
 import {fetchFeedImpl} from "@/lib/Feed";
 import {fetchSavedFeedsImpl} from "@/lib/preferences";
+import {useActorFetchers} from "@/lib/actorViewUtils";
 
 /* =========================================================================================
  * PROVIDER COMPONENT
