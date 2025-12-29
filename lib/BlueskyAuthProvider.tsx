@@ -1,4 +1,4 @@
-﻿
+
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
@@ -14,8 +14,14 @@ type BlueskySessionCtx = {
 
 const BlueskyCtx = createContext<BlueskySessionCtx | null>(null);
 
+// Prefer env override; otherwise use current origin's API route
+const DEFAULT_CLIENT_ID =
+    typeof window !== "undefined"
+        ? `${window.location.origin}/api/client-metadata`
+        : ""; // server-side render will be empty; client will fill
+
 const CLIENT_ID =
-    process.env.NEXT_PUBLIC_ATPROTO_CLIENT_ID || "https://wii.suko.pet/client-metadata.json";
+    process.env.NEXT_PUBLIC_ATPROTO_CLIENT_ID ?? DEFAULT_CLIENT_ID;
 
 export function BlueskyAuthProvider({ children }: { children: React.ReactNode }) {
     const { agent, session, isInitializing, signIn, signOut } = useOAuth({
@@ -23,10 +29,10 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
         handleResolver: "https://bsky.social",
         responseMode: "query",
         getScope: () => "atproto transition:generic",
+
     });
 
     const [currentUser, setCurrentUser] = useState<any | null>(null);
-
     const isLoggedIn = !!agent && !!session && !isInitializing;
 
     useEffect(() => {
@@ -35,14 +41,12 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
                 setCurrentUser(null);
                 return;
             }
-            // Using the authenticated Agent created from the OAuth session [3](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/use-oauth.ts)
             const profile = await agent.getProfile({ actor: session.did });
             setCurrentUser(profile.data);
         })();
     }, [agent, session]);
 
     const login = async (identifier: string, _appPassword?: string) => {
-        // identifier can be handle, DID, or PDS url (same as official example UI) [10](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/oauth-sign-in-form.tsx)[3](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/use-oauth.ts)
         await signIn(identifier);
     };
 
@@ -64,3 +68,4 @@ export function useBluesky() {
     if (!ctx) throw new Error("useBluesky must be used inside BlueskyAuthProvider");
     return ctx;
 }
+``

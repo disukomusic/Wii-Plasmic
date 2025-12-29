@@ -1,0 +1,4 @@
+﻿
+NEXT_PUBLIC_ATPROTO_CLIENT_ID=http://localhost:3000/client-metadata.dev.json
+NEXT_PUBLIC_ATPROTO_REDIRECT_URI=http://localhost:3000/callback
+NEXT_PUBLIC_ATPROTO_POST_LOGOUT_REDIRECT_URI=http://localhost:3000
