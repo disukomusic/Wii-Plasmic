@@ -496,10 +496,10 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
           name="bskyData"
           data={{
             posts, // For Timeline/Feed/Search/Author
-            loading,
+            loading: loading || !currentUser,
             error,
             isLoggedIn,
-            currentUser,
+            currentUser: currentUser || {},
             savedFeeds,
 
             // THREAD SPECIFIC DATA
