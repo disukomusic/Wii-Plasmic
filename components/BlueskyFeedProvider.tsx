@@ -496,6 +496,8 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     }
   }));
 
+  const IS_DEV = process.env.NODE_ENV === 'development';
+
   return (
       <DataProvider
           name="bskyData"
@@ -518,6 +520,9 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             // Actions status
             posting,
             postError,
+            
+            //dev stuff
+            isDev: IS_DEV,
           }}
       >
         {children}
