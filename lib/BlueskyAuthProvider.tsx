@@ -26,20 +26,29 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
     });
 
     const [currentUser, setCurrentUser] = useState<any | null>(null);
+    const [hasFetchedUser, setHasFetchedUser] = useState(false);
 
     const isLoggedIn = !!agent && !!session && !isInitializing;
 
     useEffect(() => {
-        (async () => {
-            if (!agent || !session) {
+        if (!agent || !session || hasFetchedUser) {
+            if (!session) {
                 setCurrentUser(null);
-                return;
+                setHasFetchedUser(false);
             }
-            // Using the authenticated Agent created from the OAuth session [3](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/use-oauth.ts)
-            const profile = await agent.getProfile({ actor: session.did });
-            setCurrentUser(profile.data);
+            return;
+        }
+
+        (async () => {
+            try {
+                const profile = await agent.getProfile({ actor: session.did });
+                setCurrentUser(profile.data);
+                setHasFetchedUser(true);
+            } catch (err) {
+                console.error("Failed to fetch profile:", err);
+            }
         })();
-    }, [agent, session]);
+    }, [agent, session, hasFetchedUser]);
 
     const login = async (identifier: string, _appPassword?: string) => {
         console.log("login called with:", identifier);
