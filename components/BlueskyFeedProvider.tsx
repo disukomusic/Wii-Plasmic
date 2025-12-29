@@ -7,8 +7,8 @@ import { BskyAgent } from '@atproto/api';
 import { DataProvider } from '@plasmicapp/host';
 import { useBluesky } from '@/lib/BlueskyAuthProvider';
 import { compressImage, coerceToBlob } from '@/lib/MediaUtils';
-import { flattenEmbed, getDisplayImages, getDisplayVideo, normalizePost} from '@/lib/NormalizeUtils'
-import { FeedMode, BlueskyProps, DISCOVER_FEED_URI} from "@/lib/types";
+import { flattenEmbed, getDisplayImages, getDisplayVideo, normalizePost} from '@/lib/NormalizeUtils';
+import { FeedMode, BlueskyProps, DISCOVER_FEED_URI} from "@/lib/Types";
 import { resolveFeedUri, createEmbed} from "@/lib/uriEmbed";
 import {updateThreadNode} from "@/lib/UpdateThreadNode";
 import {fetchThreadImpl} from "@/lib/Thread";

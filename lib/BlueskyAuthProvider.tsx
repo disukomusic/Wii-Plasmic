@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { useOAuth } from "@/lib/useOAuth";
+import { useOAuth } from "@/lib/useOauth";
 
 type BlueskySessionCtx = {
     agent: any; // Agent | null
