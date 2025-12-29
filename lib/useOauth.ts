@@ -78,24 +78,24 @@ export function useOAuth(options: {
         return () => ac.abort();
     }, [clientId, handleResolver, responseMode, plcDirectoryUrl]);
 
-    const signIn = useCallback(
-        async (input: string, authorizeOptions?: AuthorizeOptions) => {
-            if (!clientRef.current) throw new Error("OAuth client not ready");
-
-            const state = authorizeOptions?.state ?? (await getState()) ?? undefined;
-            const scope = authorizeOptions?.scope ?? (await getScope()) ?? "atproto";
-
-            const s = await clientRef.current.signIn(input, {
-                ...authorizeOptions,
-                scope,
-                state,
+    const signIn = async (handle: string) => {
+        try {
+            const client = await BrowserOAuthClient.load({
+                clientId: clientId,
+                handleResolver: handleResolver,
             });
 
-            setSession(s);
-            return s;
-        },
-        [getScope, getState]
-    );
+            // This should trigger a redirect to Bluesky's auth page
+            await client.signIn(handle, {
+                scope: getScope(),
+                signal: new AbortController().signal,
+            });
+        } catch (error) {
+            console.error("OAuth signIn failed:", error);
+            throw error;
+        }
+    };
+
 
     const signOut = useCallback(async () => {
         await session?.signOut();

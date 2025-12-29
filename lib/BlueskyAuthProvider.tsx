@@ -42,8 +42,9 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
     }, [agent, session]);
 
     const login = async (identifier: string, _appPassword?: string) => {
-        // identifier can be handle, DID, or PDS url (same as official example UI) [10](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/oauth-sign-in-form.tsx)[3](https://github.com/bluesky-social/atproto/blob/main/packages/oauth/oauth-client-browser/example/src/auth/oauth/use-oauth.ts)
+        console.log("login called with:", identifier);
         await signIn(identifier);
+        console.log("signIn completed (should not reach here if redirect worked)");
     };
 
     const logout = async () => {
