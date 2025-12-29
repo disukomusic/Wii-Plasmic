@@ -1,0 +1,13 @@
+﻿
+{
+  "client_id": "https://wii.suko.pet/client-metadata.json",
+  "client_name": "Miisky",
+  "client_uri": "https:://wii.suko.pet",
+  "redirect_uris": ["https:://wii.suko.pet/oauth/callback"],
+  "scope": "atproto",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "application_type": "web",
+  "dpop_bound_access_tokens": true
+}

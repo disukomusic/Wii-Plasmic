@@ -152,8 +152,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
 
     // --- Like Post (Handles both Thread and List modes) ---
     likePost: async (uri: string, cid?: string) => {
-      if (!agent.hasSession) return;
-
+      if (!agent) return;
       // 1. Identify current state to determine if we are Adding or Removing
       let isAlreadyLiked = false;
       let existingLikeUri: string | undefined;
@@ -303,8 +302,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     
     // --- Repost (Handles both Thread and List modes) ---
     repostPost: async (uri: string, cid: string) => {
-      if (!agent.hasSession) return;
-
+      if (!agent) return;
       // 1. Identify current state to determine if we are Adding or Removing
       let isAlreadyReposted = false;
       let existingRepostUri: string | undefined;
@@ -433,7 +431,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
 
 
     createPost: async (text: string, images: any[] = [], quoteUri?: string, quoteCid?: string, replyParentUri?: string, replyParentCid?: string, replyRootUri?: string, replyRootCid?: string) => {
-      if (!agent.hasSession) return;
+      if (!agent) return;      
       setPosting(true);
       try {
 
