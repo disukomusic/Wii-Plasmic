@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback, useRef } from 'react';
 import { BskyAgent } from '@atproto/api';
 import { DataProvider } from '@plasmicapp/host';
-import { useBluesky } from '@/lib/BlueskyAuthProvider';
+import {isInPlasmicEditor, useBluesky} from '@/lib/BlueskyAuthProvider';
 import { compressImage, coerceToBlob } from '@/lib/MediaUtils';
 import { flattenEmbed, getDisplayImages, getDisplayVideo, normalizePost} from '@/lib/NormalizeUtils';
 import { FeedMode, BlueskyProps, DISCOVER_FEED_URI} from "@/lib/Types";
@@ -29,8 +29,9 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     children
   } = props;
 
+  // --- Bluesky Auth Hook ---
   const { agent, isLoggedIn, currentUser, login, logout } = useBluesky();
-
+  
   // --- General Feed State ---
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
