@@ -1,10 +1,9 @@
-﻿
-{
+﻿{
   "client_id": "https://wii.suko.pet/client-metadata.json",
   "client_name": "Miisky",
   "client_uri": "https://wii.suko.pet",
   "redirect_uris": ["https://wii.suko.pet/oauth/callback"],
-  "scope": "atproto transition:generic",
+  "scope": "atproto transition:generic transition:chat.bsky",
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "token_endpoint_auth_method": "none",

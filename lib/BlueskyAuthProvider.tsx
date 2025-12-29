@@ -22,7 +22,7 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
         clientId: CLIENT_ID,
         handleResolver: "https://bsky.social",
         responseMode: "query",
-        getScope: () => "atproto transition:generic",
+        getScope: () => "atproto transition:generic transition:chat.bsky",
     });
 
     const [currentUser, setCurrentUser] = useState<any | null>(null);
