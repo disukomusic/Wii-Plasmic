@@ -22,24 +22,20 @@ const CLIENT_ID =
 const IS_DEV = process.env.NODE_ENV === "development";
 
 export function BlueskyAuthProvider({ children }: { children: React.ReactNode }) {
-    const { agent, session, isInitializing, signIn, signOut } = useOAuth({
+    
+    const oauth = useOAuth({
         clientId: CLIENT_ID,
         handleResolver: "https://bsky.social",
         responseMode: "query",
-        getScope: () => "atproto transition:generic",
+        getScope: () => "atproto",
     });
 
-    const oauth = useOAuth({
-        clientId: process.env.NEXT_PUBLIC_ATPROTO_CLIENT_ID || "https://wii.suko.pet/client-metadata.json",
-        handleResolver: "https://bsky.social",
-        responseMode: "query",
-    });
 
     const [devAgent, setDevAgent] = useState<BskyAgent | null>(null);
     const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-    const activeAgent = IS_DEV ? devAgent : oauth.agent;
-    const isLoggedIn = !!activeAgent?.session?.did;
+    // const activeAgent = IS_DEV ? devAgent : oauth.agent;
+    // const isLoggedIn = !!activeAgent?.session?.did;
 
     useEffect(() => {
         (async () => {
@@ -58,8 +54,10 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
                 return;
             }
 
-            if (!agent || !session) { setCurrentUser(null); return; }
-            const profile = await agent.getProfile({ actor: session.did });
+
+            if (!oauth.agent || !oauth.session) { setCurrentUser(null); return; }
+            const profile = await oauth.agent.getProfile({ actor: oauth.session.did });
+            
             setCurrentUser(profile.data);
         })();
     }, [IS_DEV, devAgent, agent, session]);
@@ -120,14 +118,23 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
 
     
     const logout = async () => {
-        await signOut();
+        await oauth.signOut();        
         setCurrentUser(null);
     }
     
+    const activeAgent = IS_DEV ? devAgent : oauth.agent;
+    const isLoggedIn = !!activeAgent?.session?.did;
+
     const value = useMemo(
         () => ({ agent: activeAgent, isLoggedIn, currentUser, login, logout }),
         [activeAgent, isLoggedIn, currentUser]
     );
+    
+    useEffect(() => {
+        console.log('[oauth] isInitializing=', oauth.isInitializing,
+            'did=', oauth.session?.did,
+            'agent?', !!oauth.agent);
+    }, [oauth.isInitializing, oauth.session, oauth.agent]);
 
     
     return <BlueskyCtx.Provider value={value}>{children}</BlueskyCtx.Provider>;
