@@ -150,7 +150,15 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       if (props.identifier && props.appPassword) {
         await login(props.identifier, props.appPassword);
       }
+
+      if (props.identifier) {
+        await login(props.identifier);
+      } else {
+        console.warn('[bsky] No identifier provided to login()');
+      }
     },
+    
+    
     logout: async () => {
       await logout();
       setPosts([]);
