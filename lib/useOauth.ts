@@ -79,15 +79,17 @@ export function useOAuth(options: {
     }, [clientId, handleResolver, responseMode, plcDirectoryUrl]);
 
     const signIn = async (handle: string) => {
-        if (!client) {
-            throw new Error("OAuth client not initialized");
+        // Wait for client to be ready
+        const c = clientRef.current;
+        if (!c) {
+            throw new Error("OAuth client not initialized. Please wait and try again.");
         }
 
         try {
             const scope = await getScope();
             const state = await getState();
 
-            await client.signIn(handle, {
+            await c.signIn(handle, {
                 scope,
                 state,
                 signal: new AbortController().signal,
@@ -97,9 +99,6 @@ export function useOAuth(options: {
             throw error;
         }
     };
-
-
-
     const signOut = useCallback(async () => {
         await session?.signOut();
         setSession(null);
