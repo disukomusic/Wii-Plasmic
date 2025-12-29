@@ -25,7 +25,7 @@ export async function fetchSavedFeedsImpl(agent: BskyAgent): Promise<any[]> {
      * Guard: without a session we can't access user preferences.
      * Returning [] keeps callers simple (no special error handling).
      */
-    if (!agent?.hasSession) return [];
+    if (!agent) return [];
 
     /**
      * Fetch all preference records for the current user.

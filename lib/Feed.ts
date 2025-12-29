@@ -64,7 +64,7 @@ export async function fetchFeedImpl(opts: {
              * Home timeline requires an authenticated session.
              * If no session exists, we simply return an empty list.
              */
-            if (agent.hasSession) {
+            if (agent) {
                 const tlRes = await agent.getTimeline({ limit });
                 data = tlRes.data.feed;
             }
