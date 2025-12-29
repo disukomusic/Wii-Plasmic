@@ -37,7 +37,11 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  
+  // --- Load More State ---
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [hasMore, setHasMore] = useState(true);
+  
   // --- Interaction State ---
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
@@ -88,7 +92,11 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   /* -----------------------------------------------------------------------------
    * FEED FETCHING
    * ----------------------------------------------------------------------------- */
-  const fetchFeed = useCallback(async () => {
+  const cursorRef = useRef<string | undefined>(undefined);
+
+  const fetchFeed = useCallback(async (loadMore = false) => {
+    console.log("fetchFeed called", { loadMore, cursor: cursorRef.current });
+
     if (mode === "thread") {
       await fetchThread();
       return;
@@ -98,16 +106,24 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     setError(null);
 
     try {
-      const normalizedData = await fetchFeedImpl({
+      const result = await fetchFeedImpl({
         agent,
         mode,
         actor,
         feedUrl,
         searchQuery,
         limit,
+        cursor: loadMore ? cursorRef.current : undefined,
       });
 
-      setPosts(normalizedData);
+      if (loadMore) {
+        setPosts((prev: any[]) => [...prev, ...result.posts]);
+      } else {
+        setPosts(result.posts);
+      }
+
+      cursorRef.current = result.cursor;
+      setHasMore(!!result.cursor);
     } catch (e: any) {
       console.error("Fetch failed:", e);
       setError(e?.message ?? "Error fetching feed");
@@ -116,6 +132,12 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     }
   }, [agent, mode, actor, feedUrl, searchQuery, limit, fetchThread]);
 
+  // Reset pagination when key props change
+  useEffect(() => {
+    cursorRef.current = undefined;
+    setHasMore(true);
+  }, [mode, actor, feedUrl, searchQuery]);
+  
   // --- ACTOR PROFILE FETCHING ---
   const fetchActorProfile = useCallback(async () => {
     if (mode !== 'author' || !actor || !agent) {
@@ -553,7 +575,20 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       } finally {
         setPosting(false);
       }
-    }
+    },
+ 
+    // --- Load More Posts ---
+    loadMore: async () => {
+      if (!hasMore || loading) return;
+      await fetchFeed(true);
+    },
+    
+    // --- Load More Actor Data ---
+    loadMoreFollowers: () => fetchActorFollowers(undefined, true),
+    loadMoreFollowing: () => fetchActorFollowing(undefined, true),
+    loadMoreLists: () => fetchActorLists(undefined, true),
+
+
   }));
 
   return (
@@ -563,6 +598,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             posts, // For Timeline/Feed/Search/Author
             loading: loading || !currentUser,
             error,
+            hasMore,
             isLoggedIn,
             currentUser: currentUser || {},
             savedFeeds,

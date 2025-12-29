@@ -45,8 +45,12 @@ export async function fetchFeedImpl(opts: {
 
     /** Maximum number of items to fetch from the upstream API. */
     limit: number;
-}): Promise<any[]> {
-    const { agent, mode, actor, feedUrl, searchQuery, limit } = opts;
+    
+    //** Cursor for keeping track of pagination */
+    cursor?: string;
+    
+}): Promise<{posts: any[]; cursor?: string}> {
+    const { agent, mode, actor, feedUrl, searchQuery, limit, cursor } = opts;
 
     /**
      * Raw items returned by whichever upstream endpoint we call.
@@ -57,6 +61,7 @@ export async function fetchFeedImpl(opts: {
      *   to match the feed-item shape expected by `normalizePost()`.
      */
     let data: any[] = [];
+    let nextCursor: string | undefined;
 
     switch (mode) {
         case "timeline": {
@@ -65,8 +70,9 @@ export async function fetchFeedImpl(opts: {
              * If no session exists, we simply return an empty list.
              */
             if (agent) {
-                const tlRes = await agent.getTimeline({ limit });
+                const tlRes = await agent.getTimeline({ limit, cursor });
                 data = tlRes.data.feed;
+                nextCursor = tlRes.data.cursor;
             }
             break;
         }
@@ -82,9 +88,11 @@ export async function fetchFeedImpl(opts: {
                 const searchRes = await agent.app.bsky.feed.searchPosts({
                     q: searchQuery,
                     limit,
+                    cursor,
                 });
 
                 data = searchRes.data.posts.map((post: any) => ({ post }));
+                nextCursor = searchRes.data.cursor;
             }
             break;
         }
@@ -102,8 +110,9 @@ export async function fetchFeedImpl(opts: {
             const uri = await resolveFeedUri(agent, rawUrl);
 
             if (uri) {
-                const feedRes = await agent.app.bsky.feed.getFeed({ feed: uri, limit });
+                const feedRes = await agent.app.bsky.feed.getFeed({ feed: uri, limit, cursor });
                 data = feedRes.data.feed;
+                nextCursor = feedRes.data.cursor;
             }
             break;
         }
@@ -121,9 +130,11 @@ export async function fetchFeedImpl(opts: {
                     actor,
                     limit,
                     filter: "posts_no_replies",
+                    cursor,
                 });
 
                 data = authorRes.data.feed;
+                nextCursor = authorRes.data.cursor;
             }
             break;
         }
@@ -137,5 +148,8 @@ export async function fetchFeedImpl(opts: {
      * - Normalization lets Plasmic bindings/UI always read the same keys
      * - It’s also a good place to handle missing fields, embeds, author info, etc.
      */
-    return data.map((item: any) => normalizePost(item));
+    return {
+        posts: data.map((item: any) => normalizePost(item)),
+        cursor: nextCursor,
+    };
 }

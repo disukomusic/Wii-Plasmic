@@ -220,6 +220,23 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
       description: 'Clear current thread state',
       argTypes: []
     },
+    loadMore: {
+      description: 'Load more posts (pagination)',
+      argTypes: []
+    },
+    loadMoreFollowers: {
+      description: 'Load more followers (pagination)',
+      argTypes: []
+    },
+    loadMoreFollowing: {
+      description: 'Load more following (pagination)',
+      argTypes: []
+    },
+    loadMoreLists: {
+      description: 'Load more lists (pagination)',
+      argTypes: []
+    },
+    
   },
 });
 

@@ -165,7 +165,16 @@ export const normalizePost = (node: any) => {
 
         /** Actor who reposted this item (null if not a repost). */
         repostedBy,
+        
+        /** Timestamp when this was reposted (from reason.indexedAt), null if not a repost */
+        repostTime: isRepost ? node.reason.indexedAt : null,
 
+        /** Timestamp when this reply was created (from post.record.reply context) */
+        replyTime: post.record?.reply ? post.record.createdAt : null,
+
+        /** Timestamp when the quote post was created (the quoting post's createdAt) */
+        quoteTime: flattenEmbed(embed) ? post.record?.createdAt : null,
+        
         /**
          * Parent post (if this node came from a thread/reply context).
          * - node.reply.parent appears on some thread/feed shapes.
