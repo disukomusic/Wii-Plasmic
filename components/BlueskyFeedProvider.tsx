@@ -11,6 +11,8 @@ import { flattenEmbed, getDisplayImages, getDisplayVideo, normalizePost} from '@
 import { FeedMode, BlueskyProps, DISCOVER_FEED_URI} from "@/lib/types";
 import { resolveFeedUri, createEmbed} from "@/lib/uriEmbed";
 import {updateThreadNode} from "@/lib/UpdateThreadNode";
+import {fetchThreadImpl} from "@/lib/Thread";
+import {fetchFeedImpl} from "@/lib/Feed";
 
 /* =========================================================================================
  * PROVIDER COMPONENT
@@ -51,65 +53,24 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
    * THREAD FETCHING
    * ----------------------------------------------------------------------------- */
   const fetchThread = useCallback(async () => {
-    if (!threadUri) return;
-
-    setThreadLoading(true);
-    setThreadError(null);
-
-    try {
-      const res = await agent.getPostThread({
-        uri: threadUri,
-        depth: props.threadDepth ?? 6,
-        parentHeight: props.threadParentHeight ?? 80
-      });
-
-      const root = res.data.thread;
-
-      // 1. Handle Blocked/Not Found
-      if (!root?.post?.uri) {
-        setThreadError("Post not found or blocked");
-        setThreadAncestors([]);
-        setThreadFocused(null);
-        setThreadReplies([]);
-        return;
-      }
-
-      // 2. Parse Ancestors (Walk up the parent chain)
-      const ancestorsRaw: any[] = [];
-      let current = root.parent;
-      while (current) {
-        if (current.post) ancestorsRaw.push(current);
-        current = current.parent;
-      }
-      // Reverse so it goes [Grandparent, Parent, ...] (Top to Bottom)
-      const ancestors = ancestorsRaw.reverse().map(normalizePost);
-
-      // 3. Parse Focused Post
-      const focused = normalizePost(root);
-
-      // 4. Parse Replies (Recursive Tree)
-      // The API returns 'replies' on the root node. We normalize them recursively.
-      const replies = (root.replies || []).map((r: any) => normalizePost(r)).filter(Boolean);
-
-      // Set State
-      setThreadAncestors(ancestors);
-      setThreadFocused(focused);
-      setThreadReplies(replies);
-
-    } catch (e: any) {
-      console.error("Thread fetch failed:", e);
-      setThreadError(e?.message ?? "Failed to fetch thread");
-    } finally {
-      setThreadLoading(false);
-    }
+    await fetchThreadImpl({
+      agent,
+      threadUri,
+      depth: props.threadDepth ?? 6,
+      parentHeight: props.threadParentHeight ?? 80,
+      setThreadLoading,
+      setThreadError,
+      setThreadAncestors,
+      setThreadFocused,
+      setThreadReplies,
+    });
   }, [agent, threadUri, props.threadDepth, props.threadParentHeight]);
   
   /* -----------------------------------------------------------------------------
-   * GENERAL FEED FETCHING
+   * FEED FETCHING
    * ----------------------------------------------------------------------------- */
   const fetchFeed = useCallback(async () => {
-    // If in thread mode, we use fetchThread instead
-    if (mode === 'thread') {
+    if (mode === "thread") {
       await fetchThread();
       return;
     }
@@ -118,44 +79,19 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     setError(null);
 
     try {
-      let data: any[] = [];
+      const normalizedData = await fetchFeedImpl({
+        agent,
+        mode,
+        actor,
+        feedUrl,
+        searchQuery,
+        limit,
+      });
 
-      switch (mode) {
-        case 'timeline':
-          if (agent.hasSession) {
-            const tlRes = await agent.getTimeline({ limit });
-            data = tlRes.data.feed;
-          }
-          break;
-        case 'search':
-          if (searchQuery) {
-            const searchRes = await agent.app.bsky.feed.searchPosts({ q: searchQuery, limit });
-            data = searchRes.data.posts.map(post => ({ post }));
-          }
-          break;
-        case 'feed':
-          const rawUrl = feedUrl || DISCOVER_FEED_URI;
-          const uri = await resolveFeedUri(agent, rawUrl);
-          if (uri) {
-            const feedRes = await agent.app.bsky.feed.getFeed({ feed: uri, limit });
-            data = feedRes.data.feed;
-          }
-          break;
-        case 'author':
-        default:
-          if (actor) {
-            const authorRes = await agent.getAuthorFeed({ actor, limit, filter: 'posts_no_replies' });
-            data = authorRes.data.feed;
-          }
-          break;
-      }
-
-      // Normalize generic list
-      const normalizedData = data.map((item: any) => normalizePost(item));
       setPosts(normalizedData);
     } catch (e: any) {
       console.error("Fetch failed:", e);
-      setError(e.message || "Error fetching feed");
+      setError(e?.message ?? "Error fetching feed");
     } finally {
       setLoading(false);
     }
@@ -182,31 +118,10 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
    * ----------------------------------------------------------------------------- */
   const fetchSavedFeeds = useCallback(async () => {
     if (!isLoggedIn) return;
+
     try {
-      const prefsRes = await agent.app.bsky.actor.getPreferences();
-      const prefs = prefsRes.data.preferences;
-      let feedUris: string[] = [];
-
-      const v2 = prefs.find((p: any) => p.$type === "app.bsky.actor.defs#savedFeedsPrefV2");
-      if (v2 && Array.isArray((v2 as any).items)) {
-        (v2 as any).items.forEach((item: any) => {
-          if (item.type === "feed" && item.value) feedUris.push(item.value);
-        });
-      }
-
-      if (feedUris.length === 0) {
-        const legacy = prefs.find((p: any) => p.$type === "app.bsky.actor.defs#savedFeedsPref");
-        if (legacy) feedUris.push(...((legacy as any).saved || []), ...((legacy as any).pinned || []));
-      }
-
-      feedUris = [...new Set(feedUris)];
-      if (feedUris.length === 0) {
-        setSavedFeeds([]);
-        return;
-      }
-
-      const metadataRes = await agent.app.bsky.feed.getFeedGenerators({ feeds: feedUris });
-      setSavedFeeds(metadataRes.data.feeds.map(f => ({ uri: f.uri, ...f })));
+      const feeds = await fetchSavedFeedsImpl(agent);
+      setSavedFeeds(feeds);
     } catch (e) {
       console.error("Failed to fetch saved feeds:", e);
     }
@@ -215,10 +130,14 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
   useEffect(() => {
     if (isLoggedIn) fetchSavedFeeds();
   }, [isLoggedIn, fetchSavedFeeds]);
+
+  useEffect(() => {
+    if (isLoggedIn) fetchSavedFeeds();
+  }, [isLoggedIn, fetchSavedFeeds]);
   
 
   /* -----------------------------------------------------------------------------
-   * EXPOSED ACTIONS
+   * ACTIONS FOR PLASMIC
    * ----------------------------------------------------------------------------- */
   useImperativeHandle(ref, () => ({
     login: async () => {
@@ -587,10 +506,9 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
             savedFeeds,
 
             // THREAD SPECIFIC DATA
-            // Use these to render the "Native" thread view
-            threadAncestors,  // Render these first (opacity 0.7 maybe?)
-            threadFocused,    // Render this big and bold
-            threadReplies,    // Render these nested below
+            threadAncestors,
+            threadFocused,
+            threadReplies,
 
             threadLoading,
             threadError,
