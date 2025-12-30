@@ -516,11 +516,29 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     },
 
     // --- Create Post (text, images, quote, reply) ---
-    createPost: async (text: string, images: any[] = [], quoteUri?: string, quoteCid?: string, replyParentUri?: string, replyParentCid?: string, replyRootUri?: string, replyRootCid?: string) => {
+    createPost: async (
+        text: string, 
+        images: any[] = [], 
+        quoteUri?: string, 
+        quoteCid?: string, 
+        replyParentUri?: string, 
+        replyParentCid?: string, 
+        replyRootUri?: string, 
+        replyRootCid?: string,
+        drawingCanvasRef?: { getBlob: () => Promise<Blob | null> } // Add this
+    ) => {
       if (!agent) return;      
       setPosting(true);
       try {
 
+        let allImages = [...images];
+        if (drawingCanvasRef?.getBlob) {
+          const canvasBlob = await drawingCanvasRef.getBlob();
+          if (canvasBlob) {
+            allImages = [canvasBlob, ...allImages];
+          }
+        }
+        
         const uploadedBlobs: any[] = [];
 
         if (images.length > 0) {
