@@ -525,20 +525,10 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
         replyParentCid?: string, 
         replyRootUri?: string, 
         replyRootCid?: string,
-        drawingCanvasRef?: { getBlob: () => Promise<Blob | null> } // Add this
     ) => {
       if (!agent) return;      
       setPosting(true);
       try {
-
-        let allImages = [...images];
-        if (drawingCanvasRef?.getBlob) {
-          const canvasBlob = await drawingCanvasRef.getBlob();
-          if (canvasBlob) {
-            allImages = [canvasBlob, ...allImages];
-          }
-        }
-        
         const uploadedBlobs: any[] = [];
 
         if (images.length > 0) {
