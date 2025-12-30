@@ -320,44 +320,45 @@ function base64ToBlob(base64: string, mime = "application/octet-stream"): Blob {
  * @returns A Blob if one can be extracted/constructed, else null
  */
 export function coerceToBlob(img: any): Blob | null {
-    if (!img) return null;
+    // Enhanced logging for debugging Plasmic data
+    console.log("[coerceToBlob] Input type:", typeof img);
+    console.log("[coerceToBlob] Input constructor:", img?.constructor?.name);
+    console.log("[coerceToBlob] Input keys:", img ? Object.keys(img) : "null");
+    console.log("[coerceToBlob] Is Blob:", img instanceof Blob);
+    console.log("[coerceToBlob] Is File:", img instanceof File);
 
-    // Already a Blob/File (handle both direct and proxy-wrapped)
-    if (img instanceof Blob) return img;
-
-    // Check if it looks like a Blob (duck typing for Proxy-wrapped Blobs)
-    if (img.size !== undefined && img.type !== undefined && typeof img.slice === 'function') {
-        // It's likely a Blob wrapped in a Proxy
-        return img as Blob;
+    // Try to unwrap Proxy or nested structures
+    if (img && typeof img === "object") {
+        // Check for common Plasmic/form wrapper patterns
+        if (img.file instanceof Blob) {
+            console.log("[coerceToBlob] Found img.file as Blob");
+            return img.file;
+        }
+        if (img.blob instanceof Blob) {
+            console.log("[coerceToBlob] Found img.blob as Blob");
+            return img.blob;
+        }
+        if (img.data instanceof Blob) {
+            console.log("[coerceToBlob] Found img.data as Blob");
+            return img.data;
+        }
+        // Handle array-like with first element being blob
+        if (img[0] instanceof Blob) {
+            console.log("[coerceToBlob] Found img[0] as Blob");
+            return img[0];
+        }
     }
 
-    // Ant Design / rc-upload commonly stores the File here:
-    if (img.originFileObj instanceof Blob) return img.originFileObj;
-    if (img.originFileObj?.size !== undefined && typeof img.originFileObj?.slice === 'function') {
-        return img.originFileObj as Blob;
+    if (img instanceof Blob || img instanceof File) {
+        return img;
     }
 
-    if (img.file instanceof Blob) return img.file;
-    if (img.file?.size !== undefined && typeof img.file?.slice === 'function') {
-        return img.file as Blob;
+    // Log full structure for debugging
+    try {
+        console.log("[coerceToBlob] Full structure:", JSON.stringify(img, null, 2));
+    } catch {
+        console.log("[coerceToBlob] Could not stringify (circular or proxy)");
     }
 
-    // Some libs provide `raw` or `blob`.
-    if (img.raw instanceof Blob) return img.raw;
-    if (img.blob instanceof Blob) return img.blob;
-
-    // Your case: has `contents` base64 string.
-    if (typeof img.contents === "string" && img.contents.length > 0) {
-        return base64ToBlob(img.contents, img.type || "application/octet-stream");
-    }
-
-    // Sometimes a thumbUrl is a data URL.
-    if (typeof img.thumbUrl === "string" && img.thumbUrl.startsWith("data:")) {
-        const mimeMatch = img.thumbUrl.match(/^data:(.*?);base64,/);
-        const mime = mimeMatch?.[1] || img.type || "application/octet-stream";
-        return base64ToBlob(img.thumbUrl, mime);
-    }
-
-    // Unknown shape; caller can handle null.
     return null;
 }
