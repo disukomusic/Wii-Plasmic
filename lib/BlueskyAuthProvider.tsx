@@ -30,7 +30,7 @@ export const isInPlasmicEditor = () => {
 };
 
 export function BlueskyAuthProvider({ children }: { children: React.ReactNode }) {
-    const { agent: oauthAgent, session, isInitializing, signIn, signOut } = useOAuth({
+    const { agent: oauthAgent, session, isInitializing, signIn, signOut, client } = useOAuth({
         clientId: CLIENT_ID,
         handleResolver: "https://bsky.social",
         responseMode: "query",
@@ -103,7 +103,9 @@ export function BlueskyAuthProvider({ children }: { children: React.ReactNode })
     }, [oauthAgent, session, hasFetchedUser, devMode]);
 
     const login = async (identifier: string, appPassword?: string) => {
-        // Use app password if provided or in Plasmic editor
+        
+        console.log("LOGIN CLICKED: session =", session, "client =", client);
+        
         if (appPassword || isInPlasmicEditor()) {
             if (!appPassword) {
                 throw new Error("App password required in Plasmic editor");
