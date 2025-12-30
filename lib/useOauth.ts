@@ -64,6 +64,7 @@ export function useOAuth(options: {
                         setSession(r.session);
                     }
                 } catch (err) {
+                    if (ac.signal.aborted) return;
                     if (err instanceof LoginContinuedInParentWindowError) {
                         setIsLoginPopup(true);
                     } else {
@@ -71,11 +72,23 @@ export function useOAuth(options: {
                     }
                 }
             })
+            .catch((err) => {
+                // Ignore AbortError from signal
+                if (err.name === 'AbortError') return;
+                console.error("OAuth client load failed:", err);
+            })
             .finally(() => {
                 if (!ac.signal.aborted) setIsInitializing(false);
             });
 
-        return () => ac.abort();
+        return () => {
+            ac.abort();
+            // Dispose client on unmount
+            if (clientRef.current) {
+                clientRef.current.dispose();
+                clientRef.current = null;
+            }
+        };
     }, [clientId, handleResolver, responseMode, plcDirectoryUrl]);
 
     const signIn = async (handle: string) => {
