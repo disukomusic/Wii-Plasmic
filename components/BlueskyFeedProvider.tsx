@@ -530,18 +530,7 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
       if (!agent) return;      
       setPosting(true);
       try {
-        console.log("[createPost] images param:", images);
-        console.log("[createPost] images length:", images?.length);
-        console.log("[createPost] images type:", typeof images);
 
-        if (images.length > 0) {
-          images.forEach((img, i) => {
-            console.log(`[createPost] image[${i}]:`, img);
-            console.log(`[createPost] image[${i}] type:`, typeof img);
-            console.log(`[createPost] image[${i}] constructor:`, img?.constructor?.name);
-          });
-        }
-        
         let allImages = [...images];
         if (drawingCanvasRef?.getBlob) {
           const canvasBlob = await drawingCanvasRef.getBlob();
