@@ -6,6 +6,7 @@ import { BlueskyFeedProvider } from "./components/BlueskyFeedProvider";
 import { BlueskyVideo } from "./components/BlueskyVideo";
 import { ContentEditableTextarea } from "./components/ContentEditableTextarea";
 import { AutoScrollDiv } from "./components/AutoScrollDiv";
+import { DrawingCanvas } from "./components/DrawingCanvas";
 
 export const PLASMIC = initPlasmicLoader({
   projects: [
@@ -353,5 +354,33 @@ PLASMIC.registerComponent(AutoScrollDiv, {
     children: 'slot',
   },
 });
+
+PLASMIC.registerComponent(DrawingCanvas, {
+  name: 'DrawingCanvas',
+  importPath: './components/DrawingCanvas',
+  props: {
+    canvasWidth: { type: 'number', defaultValue: 320 },
+    canvasHeight: { type: 'number', defaultValue: 120 },
+    brushSize: { type: 'number', defaultValue: 2 },
+    brushSizeLarge: { type: 'number', defaultValue: 6 },
+    colors: { type: 'array', defaultValue: ['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff'] },
+    onDrawingSubmit: { type: 'eventHandler', argTypes: [{ name: 'imageBlob', type: 'object' }] },
+    onDrawingChange: { type: 'eventHandler', argTypes: [{ name: 'imageBlob', type: 'object' }] },
+    toolbar: 'slot',
+    colorPalette: 'slot',
+    children: 'slot',
+  },
+  providesData: true,
+  refActions: {
+    submit: { description: 'Submit drawing', argTypes: [] },
+    clear: { description: 'Clear canvas', argTypes: [] },
+    setTool: { description: 'Set tool (pen/eraser)', argTypes: [{ name: 'tool', type: 'string' }] },
+    setBrushSize: { description: 'Set brush size (small/large)', argTypes: [{ name: 'size', type: 'string' }] },
+    setColor: { description: 'Set brush color', argTypes: [{ name: 'color', type: 'string' }] },
+  },
+});
+
+
+
 
 
