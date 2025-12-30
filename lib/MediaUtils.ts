@@ -81,6 +81,10 @@ export const compressImage = async (
     /** Convert MB target to byte target. */
     const maxBytes = maxSizeMB * 1024 * 1024;
 
+    //If it's already small enough, don't touch it!
+    if (blob.size <= maxBytes) {
+        return blob;
+    }
     /**
      * Helper: Promisified canvas.toBlob().
      * - `quality` is used for lossy formats (e.g. JPEG); ignored by PNG.
