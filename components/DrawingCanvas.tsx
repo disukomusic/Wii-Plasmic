@@ -101,6 +101,14 @@ export const DrawingCanvas = forwardRef((props: DrawingCanvasProps, ref) => {
         setHasDrawing(true);
     }, [isDrawing, currentColor, currentTool, currentBrushSize, brushSize, brushSizeLarge, getCanvasCoords]);
 
+
+    const startDrawing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault();
+        setIsDrawing(true);
+        draw(e);
+    }, [draw]);
+
+    
     const stopDrawing = useCallback(() => {
         setIsDrawing(false);
         // Update blob when drawing stops
