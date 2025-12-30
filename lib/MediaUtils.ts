@@ -25,7 +25,7 @@
  */
 export const compressImage = async (
     blob: Blob,
-    maxSizeMB: number = 0.95,
+    maxSizeMB: number = 0.97,
     opts?: {
         /**
          * Maximum width/height (longest side) after the initial resize pass.
@@ -158,7 +158,9 @@ export const compressImage = async (
     let width = img.width;
     let height = img.height;
 
-    if (width > maxDimension || height > maxDimension) {
+    const needsInitialResize = blob.size > maxBytes || width > maxDimension || height > maxDimension;
+
+    if (needsInitialResize && (width > maxDimension || height > maxDimension)) {
         if (width > height) {
             height = Math.round(height * (maxDimension / width));
             width = maxDimension;
@@ -167,7 +169,7 @@ export const compressImage = async (
             height = maxDimension;
         }
     }
-
+    
     /**
      * Draw resized image to canvas.
      * Canvas is our staging area for:
@@ -199,6 +201,10 @@ export const compressImage = async (
      */
     const outType = alphaPresent ? "image/png" : "image/jpeg";
 
+    if (blob.size <= maxBytes && !needsInitialResize) {
+        return blob;
+    }
+    
     /**
      * If we're outputting JPEG, paint a background.
      * JPEG has no alpha; without a background, some pipelines show black or unexpected colors.
@@ -228,8 +234,7 @@ export const compressImage = async (
             if (out.size <= maxBytes || quality <= jpegQualityMin) return out;
 
             // Step quality down in coarse increments.
-            // (You could make this adaptive/binary search later if desired.)
-            quality = Math.max(jpegQualityMin, quality - 0.1);
+            quality = Math.max(jpegQualityMin, quality - 0.05);
         }
     }
 
@@ -238,10 +243,7 @@ export const compressImage = async (
      * If the PNG is too large, we must reduce dimensions.
      */
     let out = await canvasToBlob(canvas, outType);
-    if (!out) return blob;
-
-    // If the initial PNG already fits, we're done.
-    if (out.size <= maxBytes) return out;
+    if (!out || out.size <= maxBytes) return out ?? blob;
 
     /**
      * Iterative downscale loop:
