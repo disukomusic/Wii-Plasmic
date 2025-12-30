@@ -322,12 +322,25 @@ function base64ToBlob(base64: string, mime = "application/octet-stream"): Blob {
 export function coerceToBlob(img: any): Blob | null {
     if (!img) return null;
 
-    // Already a Blob/File.
+    // Already a Blob/File (handle both direct and proxy-wrapped)
     if (img instanceof Blob) return img;
+
+    // Check if it looks like a Blob (duck typing for Proxy-wrapped Blobs)
+    if (img.size !== undefined && img.type !== undefined && typeof img.slice === 'function') {
+        // It's likely a Blob wrapped in a Proxy
+        return img as Blob;
+    }
 
     // Ant Design / rc-upload commonly stores the File here:
     if (img.originFileObj instanceof Blob) return img.originFileObj;
+    if (img.originFileObj?.size !== undefined && typeof img.originFileObj?.slice === 'function') {
+        return img.originFileObj as Blob;
+    }
+
     if (img.file instanceof Blob) return img.file;
+    if (img.file?.size !== undefined && typeof img.file?.slice === 'function') {
+        return img.file as Blob;
+    }
 
     // Some libs provide `raw` or `blob`.
     if (img.raw instanceof Blob) return img.raw;
@@ -340,7 +353,6 @@ export function coerceToBlob(img: any): Blob | null {
 
     // Sometimes a thumbUrl is a data URL.
     if (typeof img.thumbUrl === "string" && img.thumbUrl.startsWith("data:")) {
-        // Pull mime out of data url.
         const mimeMatch = img.thumbUrl.match(/^data:(.*?);base64,/);
         const mime = mimeMatch?.[1] || img.type || "application/octet-stream";
         return base64ToBlob(img.thumbUrl, mime);
