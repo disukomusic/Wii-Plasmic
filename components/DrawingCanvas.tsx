@@ -49,10 +49,15 @@ export const DrawingCanvas = forwardRef((props: DrawingCanvasProps, ref) => {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
+
+        // Disable all browser smoothing
+        ctx.imageSmoothingEnabled = false;
+
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     }, [canvasWidth, canvasHeight]);
-
+    
+    
     const getCanvasCoords = useCallback((e: React.MouseEvent | React.TouchEvent) => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
@@ -83,18 +88,18 @@ export const DrawingCanvas = forwardRef((props: DrawingCanvasProps, ref) => {
         const size = currentBrushSize === 'large' ? brushSizeLarge : brushSize;
 
         ctx.fillStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
-        ctx.beginPath();
-        ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-        ctx.fill();
+
+        // NEW: Draw a sharp square instead of a blurry circle
+        // Math.floor ensures we snap to the pixel grid
+        ctx.fillRect(
+            Math.floor(x - size / 2),
+            Math.floor(y - size / 2),
+            size,
+            size
+        );
 
         setHasDrawing(true);
     }, [isDrawing, currentColor, currentTool, currentBrushSize, brushSize, brushSizeLarge, getCanvasCoords]);
-
-    const startDrawing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-        e.preventDefault();
-        setIsDrawing(true);
-        draw(e);
-    }, [draw]);
 
     const stopDrawing = useCallback(() => {
         setIsDrawing(false);
