@@ -1,51 +1,50 @@
-﻿import React, { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { DataProvider } from '@plasmicapp/loader-nextjs';
+﻿// components/DrawingCanvas.tsx
+import React, { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { DataProvider } from '@plasmicapp/host';
 
 interface DrawingCanvasProps {
-    onDrawingSubmit?: (imageBlob: Blob) => void;
-    onDrawingChange?: (imageBlob: Blob) => void;
-    className?: string;
     canvasWidth?: number;
     canvasHeight?: number;
     brushSize?: number;
     brushSizeLarge?: number;
     colors?: string[];
+    onDrawingSubmit?: (imageBlob: Blob) => void;
+    onDrawingChange?: (imageBlob: Blob) => void;
     toolbar?: React.ReactNode;
     colorPalette?: React.ReactNode;
     children?: React.ReactNode;
+    className?: string;
 }
 
-export interface DrawingCanvasRef {
-    submit: () => void;
-    clear: () => void;
-    setTool: (tool: 'pen' | 'eraser') => void;
-    setBrushSize: (size: 'small' | 'large') => void;
-    setColor: (color: string) => void;
-}
+export const DrawingCanvas = forwardRef((props: DrawingCanvasProps, ref) => {
+    const {
+        canvasWidth = 320,
+        canvasHeight = 120,
+        brushSize = 2,
+        brushSizeLarge = 6,
+        colors = ['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff'],
+        onDrawingSubmit,
+        onDrawingChange,
+        toolbar,
+        colorPalette,
+        children,
+        className,
+    } = props;
 
-export const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
-                                                                                   onDrawingSubmit,
-                                                                                   onDrawingChange,
-                                                                                   className,
-                                                                                   canvasWidth = 320,
-                                                                                   canvasHeight = 120,
-                                                                                   brushSize = 2,
-                                                                                   brushSizeLarge = 6,
-                                                                                   colors = ['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff'],
-                                                                                   toolbar,
-                                                                                   colorPalette,
-                                                                                   children,
-                                                                               }, ref) => {
+    
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [color, setColor] = useState('#000000');
-    const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
-    const [currentBrushSize, setCurrentBrushSize] = useState<'small' | 'large'>('small');
-    const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
-    const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+    const blobRef = useRef<Blob | null>(null); // Store blob in ref to avoid re-renders
+    const [currentBlob, setCurrentBlob] = useState<Blob | null>(null);
 
-    const initCanvas = useCallback(() => {
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [currentColor, setColor] = useState(colors[0] || '#000000');
+    const [currentTool, setTool] = useState<'pen' | 'eraser'>('pen');
+    const [currentBrushSize, setCurrentBrushSize] = useState<'small' | 'large'>('small');
+    const [hasDrawing, setHasDrawing] = useState(false);
+
+    // Initialize canvas
+    useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -54,81 +53,110 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     }, [canvasWidth, canvasHeight]);
 
-    useEffect(() => { initCanvas(); }, [initCanvas]);
-
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        const observer = new IntersectionObserver(
-            (entries) => entries.forEach((entry) => {
-                if (entry.isIntersecting) requestAnimationFrame(initCanvas);
-            }),
-            { threshold: 0.1 }
-        );
-        observer.observe(container);
-        return () => observer.disconnect();
-    }, [initCanvas]);
-
-    const getCoords = useCallback((e: React.MouseEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) => {
-        const rect = canvas.getBoundingClientRect();
-        return {
-            x: (e.clientX - rect.left) * (canvasWidth / rect.width),
-            y: (e.clientY - rect.top) * (canvasHeight / rect.height),
-        };
-    }, [canvasWidth, canvasHeight]);
-
-    const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const getCanvasCoords = useCallback((e: React.MouseEvent | React.TouchEvent) => {
         const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (!ctx || !canvas) return;
-        setIsDrawing(true);
-        const { x, y } = getCoords(e, canvas);
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-    }, [getCoords]);
+        if (!canvas) return { x: 0, y: 0 };
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
 
-    const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+        if ('touches' in e) {
+            const touch = e.touches[0];
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY,
+            };
+        }
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY,
+        };
+    }, []);
+
+    const draw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
         if (!isDrawing) return;
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
-        if (!ctx || !canvas) return;
-        const { x, y } = getCoords(e, canvas);
-        ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
-        ctx.lineWidth = currentBrushSize === 'large' ? brushSizeLarge : brushSize;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineTo(x, y);
-        ctx.stroke();
-    }, [isDrawing, color, tool, currentBrushSize, brushSize, brushSizeLarge, getCoords]);
+        if (!ctx) return;
 
-    const capturePreview = useCallback(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        setPreviewDataUrl(canvas.toDataURL('image/png'));
-        canvas.toBlob((blob) => {
-            if (blob) {
-                setPreviewBlob(blob);
-                onDrawingChange?.(blob);
-            }
-        }, 'image/png');
-    }, [onDrawingChange]);
+        const { x, y } = getCanvasCoords(e);
+        const size = currentBrushSize === 'large' ? brushSizeLarge : brushSize;
+
+        ctx.fillStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
+        ctx.beginPath();
+        ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        setHasDrawing(true);
+    }, [isDrawing, currentColor, currentTool, currentBrushSize, brushSize, brushSizeLarge, getCanvasCoords]);
+
+    const startDrawing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault();
+        setIsDrawing(true);
+        draw(e);
+    }, [draw]);
 
     const stopDrawing = useCallback(() => {
         setIsDrawing(false);
-        capturePreview();
-    }, [capturePreview]);
+        // Update blob when drawing stops
+        const canvas = canvasRef.current;
+        if (canvas) {
+            canvas.toBlob((blob) => {
+                blobRef.current = blob;
+                setCurrentBlob(blob); // Store in state for DataProvider
+            }, 'image/png');
+        }
+    }, []);
+
+    // Update blob ref without triggering re-renders
+    const updateBlobRef = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        canvas.toBlob((blob) => {
+            if (blob) {
+                blobRef.current = blob;
+            }
+        }, 'image/png');
+    }, []);
 
     const clearCanvas = useCallback(() => {
-        initCanvas();
-        setPreviewDataUrl(null);
-        setPreviewBlob(null);
-    }, [initCanvas]);
-
-    const submitDrawing = useCallback(() => {
         const canvas = canvasRef.current;
-        if (!canvas || !onDrawingSubmit) return;
-        canvas.toBlob((blob) => { if (blob) onDrawingSubmit(blob); }, 'image/png');
-    }, [onDrawingSubmit]);
+        const ctx = canvas?.getContext('2d');
+        if (!ctx || !canvas) return;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        setHasDrawing(false);
+        blobRef.current = null;
+    }, []);
+
+    // Get blob synchronously from ref, or generate if needed
+    const getDrawingBlob = useCallback((): Promise<Blob | null> => {
+        return new Promise((resolve) => {
+            if (blobRef.current) {
+                resolve(blobRef.current);
+                return;
+            }
+
+            const canvas = canvasRef.current;
+            if (!canvas) {
+                resolve(null);
+                return;
+            }
+
+            canvas.toBlob((blob) => {
+                blobRef.current = blob;
+                resolve(blob);
+            }, 'image/png');
+        });
+    }, []);
+
+    const submitDrawing = useCallback(async () => {
+        const blob = await getDrawingBlob();
+        if (blob && onDrawingSubmit) {
+            onDrawingSubmit(blob);
+        }
+    }, [getDrawingBlob, onDrawingSubmit]);
 
     useImperativeHandle(ref, () => ({
         submit: submitDrawing,
@@ -136,15 +164,16 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
         setTool,
         setBrushSize: setCurrentBrushSize,
         setColor,
-    }), [submitDrawing, clearCanvas]);
+        getBlob: getDrawingBlob, // Expose getter for direct access
+    }), [submitDrawing, clearCanvas, getDrawingBlob]);
 
     const contextData = {
-        previewUrl: previewDataUrl,
-        previewBlob,
-        currentTool: tool,
-        currentColor: color,
+        currentColor,
+        currentTool,
         currentBrushSize,
+        hasDrawing,
         colors,
+        currentBlob,
     };
 
     return (
@@ -155,11 +184,14 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
                     ref={canvasRef}
                     width={canvasWidth}
                     height={canvasHeight}
-                    style={{ cursor: 'crosshair', imageRendering: 'pixelated', width: '100%', height: 'auto' }}
+                    style={{ cursor: 'crosshair', imageRendering: 'pixelated', width: '100%', height: 'auto', touchAction: 'none' }}
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
                     onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
                 />
                 {colorPalette}
                 {children}
@@ -167,3 +199,5 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
         </DataProvider>
     );
 });
+
+DrawingCanvas.displayName = 'DrawingCanvas';

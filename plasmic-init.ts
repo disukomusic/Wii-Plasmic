@@ -377,6 +377,7 @@ PLASMIC.registerComponent(DrawingCanvas, {
     setTool: { description: 'Set tool (pen/eraser)', argTypes: [{ name: 'tool', type: 'string' }] },
     setBrushSize: { description: 'Set brush size (small/large)', argTypes: [{ name: 'size', type: 'string' }] },
     setColor: { description: 'Set brush color', argTypes: [{ name: 'color', type: 'string' }] },
+    getBlob: { description: 'Get drawing as Blob (async)', argTypes: [] },
   },
 });
 
