@@ -43,6 +43,8 @@ export const DrawingCanvas = forwardRef((props: DrawingCanvasProps, ref) => {
     const [currentBrushSize, setCurrentBrushSize] = useState<'small' | 'large'>('small');
     const [hasDrawing, setHasDrawing] = useState(false);
 
+    const prevPointRef = useRef<{ x: number; y: number } | null>(null);
+
     // Initialize canvas
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -89,15 +91,31 @@ export const DrawingCanvas = forwardRef((props: DrawingCanvasProps, ref) => {
 
         ctx.fillStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
 
-        // NEW: Draw a sharp square instead of a blurry circle
-        // Math.floor ensures we snap to the pixel grid
-        ctx.fillRect(
-            Math.floor(x - size / 2),
-            Math.floor(y - size / 2),
-            size,
-            size
-        );
+        const prev = prevPointRef.current;
+        if (!prev) {
+            // First stamp for this stroke
+            ctx.fillRect(Math.floor(x - size / 2), Math.floor(y - size / 2), size, size);
+            prevPointRef.current = { x, y };
+            setHasDrawing(true);
+            return;
+        }
 
+        const dx = x - prev.x;
+        const dy = y - prev.y;
+        const dist = Math.hypot(dx, dy);
+
+        // Step size: smaller -> more stamps -> denser line
+        const step = Math.max(1, size / 2); // try size/3 if you still see gaps
+        const steps = Math.ceil(dist / step);
+
+        for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const xi = prev.x + dx * t;
+            const yi = prev.y + dy * t;
+            ctx.fillRect(Math.floor(xi - size / 2), Math.floor(yi - size / 2), size, size);
+        }
+
+        prevPointRef.current = { x, y };
         setHasDrawing(true);
     }, [isDrawing, currentColor, currentTool, currentBrushSize, brushSize, brushSizeLarge, getCanvasCoords]);
 
@@ -111,7 +129,8 @@ export const DrawingCanvas = forwardRef((props: DrawingCanvasProps, ref) => {
     
     const stopDrawing = useCallback(() => {
         setIsDrawing(false);
-        // Update blob when drawing stops
+        prevPointRef.current = null;
+
         const canvas = canvasRef.current;
         if (canvas) {
             canvas.toBlob((blob) => {
