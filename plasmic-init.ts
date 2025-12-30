@@ -128,10 +128,15 @@ PLASMIC.registerComponent(BlueskyFeedProvider, {
   providesData: true,
   refActions: {
     // --- Auth Actions ---
+
     login: {
       description: 'Login',
-      argTypes: []
+      argTypes: [
+        { name: 'identifier', type: 'string', displayName: 'Handle (e.g., suko.pet)' },
+        { name: 'appPassword', type: 'string', displayName: 'App Password (dev/Studio)', defaultValue: '' }
+      ]
     },
+
     logout: {
       description: 'Logout',
       argTypes: []

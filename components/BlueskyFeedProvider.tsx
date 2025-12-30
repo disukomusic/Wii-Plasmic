@@ -225,11 +225,21 @@ export const BlueskyFeedProvider = forwardRef((props: BlueskyProps, ref) => {
     fetchActorLists,
     
     // --- Login ---
-    login: async () => {
-      if (props.identifier && props.appPassword) {
-        await login(props.identifier, props.appPassword);
+
+    login: async (identifier?: string, appPassword?: string) => {
+      // Prefer explicit args, fall back to component props
+      const id = identifier ?? props.identifier;
+      const pw = appPassword ?? props.appPassword;
+
+      if (!id) {
+        console.warn("[BlueskyFeedProvider] login called without identifier (handle).");
+        return;
       }
+
+      // Delegate to BlueskyAuthProvider.login(id, pw)
+      await login(id, pw);
     },
+
     
     // --- Logout ---
     logout: async () => {
