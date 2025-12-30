@@ -70,21 +70,22 @@ export const compressImage = async (
     }
 ): Promise<Blob> => {
     const {
-        maxDimension = 2000,
+        maxDimension = 4096,
         preserveTransparency = true,
-        jpegQualityStart = 0.82,
+        jpegQualityStart = 0.9,
         jpegQualityMin = 0.5,
-        downscaleStep = 0.9,
+        downscaleStep = 0.95,
         alphaSampleStride = 16,
     } = opts ?? {};
 
     /** Convert MB target to byte target. */
     const maxBytes = maxSizeMB * 1024 * 1024;
 
-    //If it's already small enough, don't touch it!
     if (blob.size <= maxBytes) {
+        console.log("Image is under limit, skipping compression entirely.");
         return blob;
     }
+    
     /**
      * Helper: Promisified canvas.toBlob().
      * - `quality` is used for lossy formats (e.g. JPEG); ignored by PNG.
@@ -204,10 +205,6 @@ export const compressImage = async (
      * - Opaque images => JPEG (smaller for photos / non-alpha)
      */
     const outType = alphaPresent ? "image/png" : "image/jpeg";
-
-    if (blob.size <= maxBytes && !needsInitialResize) {
-        return blob;
-    }
     
     /**
      * If we're outputting JPEG, paint a background.
